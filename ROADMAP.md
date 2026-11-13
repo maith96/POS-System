@@ -1,6 +1,6 @@
 # Mini Supermarket POS – Roadmap
 
-Status: ✅ done · 🚧 in progress · ⬜ not started
+Status: ✅ done · 🚧 in progress · ⏸ paused / hidden · ⬜ not started
 
 ## Fix first (gaps in what exists)
 
@@ -18,7 +18,8 @@ Status: ✅ done · 🚧 in progress · ⬜ not started
 |---|------|--------|-------|
 | 5 | **Shifts and cash-up** | ✅ built, not yet tested in the client | Open shift with float, close with counted cash; expected vs counted; supervisor approves differences. |
 | 19 | **Cashier screen quick wins** | ✅ built, not tested in the client | Till (POS Sales): scan box first; `3*barcode` quantity prefix; search by item name (Item List pick when several match); shortcuts F9 Post, F8 Exact Cash, F7 MPESA, Ctrl+Alt+N New Sale, Ctrl+Delete Delete Last Line; Sale Totals FactBox; Quick Cash 50/100/200/500/1000; clutter fields under Show more; new sale starts automatically after posting; Hold Sale / Recall Sale with a Held Sales cue. Void / cancel with supervisor approval is still item 8. The touch till (item 20) supersedes this form for touchscreens; the form stays available (action New POS Sale) and shares its sale logic. |
-| 20 | **Touch till (control add-in)** | ✅ built, not tested in the client | Full-screen touch till (page Till, control add-in POS Touch Till, version 1.5.0.0): scan box, cart with qty / void line / hold, category chips and product buttons (items flagged POS Till Button on the Item Card), loyalty member and points, keypad, quick notes, Cash / MPESA / Card, Complete sale with "Give change". Logic in POS Till Controller; shared sale logic in POS Sale Management. |
+| 20 | **Touch till (control add-in)** | ✅ built, not tested in the client | Full-screen touch till (page Till, control add-in POS Touch Till, version 1.5.0.0): scan box, cart with qty / void line / hold, category chips and product buttons (items flagged POS Till Button on the Item Card), loyalty member and points, keypad, quick notes, Cash / MPESA / Card, Complete sale with "Give change". Logic in POS Till Controller; shared sale logic in POS Sale Management. Version 1.6.0.0 reworked it after feedback: full-screen page; − / qty / + / ✕ on each cart line; the keypad is only for cash received (and takes keyboard typing); MPESA, Card, quantity, loyalty member and points each open their own dialog with a keypad; product buttons hidden (item 21). |
+| 21 | **Product buttons on the till** | ⏸ hidden for now | The middle column of the touch till (category chips + tiles for items with POS Till Button on) is switched off (`SHOW_CATALOG = false` in till.js). The Item Card fields and the catalog code stay. Bring it back once the cart and payment screen are settled, for unbarcoded items like produce and bread. |
 | 18 | **Shift cash controls** | ✅ built, not yet tested in the client | Cashiers no longer see expected cash or differences; optional supervisor count of the drawer (two-person count); cumulative over/short per cashier (POS Cashier Differences) and a Cash Short This Month cue. |
 | 6 | **Receipt printing** | ✅ built, not yet tested in the client | 80 mm thermal layout: items, payments, change, points earned, MPESA code, eTIMS QR. |
 | 7 | **Returns at the till** | ⬜ | Look up receipt, return items, refund cash/MPESA; credit memo + reverse loyalty points. |

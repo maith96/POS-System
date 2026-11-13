@@ -1,6 +1,7 @@
 page 50167 "POS Touch Till"
 {
-    PageType = Card;
+    // UserControlHost: the add-in fills the whole page, without the card frame and empty header.
+    PageType = UserControlHost;
     Caption = 'Till';
     ApplicationArea = All;
     UsageCategory = Tasks;
@@ -9,28 +10,23 @@ page 50167 "POS Touch Till"
     {
         area(Content)
         {
-            group(TillGroup)
+            usercontrol(Till; "POS Touch Till")
             {
-                ShowCaption = false;
+                ApplicationArea = All;
 
-                usercontrol(Till; "POS Touch Till")
-                {
-                    ApplicationArea = All;
+                trigger ControlReady()
+                begin
+                    AddInReady := true;
+                    CurrPage.Till.SetCatalog(TillController.GetCatalog());
+                    RunCommand('resume', ''); // continue the cashier's open sale, if there is one
+                end;
 
-                    trigger ControlReady()
-                    begin
-                        AddInReady := true;
-                        CurrPage.Till.SetCatalog(TillController.GetCatalog());
-                        RunCommand('resume', ''); // continue the cashier's open sale, if there is one
-                    end;
-
-                    trigger Command(CommandName: Text; Payload: Text)
-                    begin
-                        if not AddInReady then
-                            exit;
-                        RunCommand(CommandName, Payload);
-                    end;
-                }
+                trigger Command(CommandName: Text; Payload: Text)
+                begin
+                    if not AddInReady then
+                        exit;
+                    RunCommand(CommandName, Payload);
+                end;
             }
         }
     }

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<!-- Design preview of the touch till with fake data, outside Business Central.
+     Run a static server in this folder (python -m http.server 8765) and open /preview.html.
+     The fake "AL" below only imitates the till controller well enough to try the screens. -->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Till preview</title>
+<link rel="stylesheet" href="css/till.css">
+<style>
+    /* imitate the BC add-in area: change the size to try smaller screens */
+    #controlAddIn { height: 100vh; }
+</style>
+</head>
+<body>
+<div id="controlAddIn"></div>
+<script>
+var Microsoft = { Dynamics: { NAV: { InvokeExtensibilityMethod: function (name, args) {
+    setTimeout(function () { Fake.handle(name, args); }, 60);
+} } } };
+
+var Fake = (function () {
+    var items = [
+        { no: '1001', description: 'Milk 500ml', price: 65 },
+        { no: '1002', description: 'Bread white 400g', price: 70 },
+        { no: '1003', description: 'Sugar 1kg', price: 189.5 },
+        { no: '1004', description: 'Cooking oil 1L', price: 345 },
+        { no: '1005', description: 'Eggs tray of 30', price: 480 }
+    ];
+    var s = blank();
+    var nextLine = 10000;
+    var scanIdx = 0;
+
+    function blank() {
+        return { docNo: '', lines: [], payments: [], phone: '', redeem: 0, mpesaPending: false, mpesaAmt: 0 };
+    }
+
+    function state() {
+        var total = 0, count = 0, paid = 0;
+        s.lines.forEach(function (l) { l.amount = Math.round(l.qty * l.unitPrice * 100) / 100; total += l.amount; count += l.qty; });
+        s.payments.forEach(function (p) { paid += p.amount; });
+        var redemption = s.redeem * 1;
+        var due = total - redemption;
+        var still = Math.max(0, Math.round((due - paid) * 100) / 100);
+        var change = Math.max(0, Math.round((paid - due) * 100) / 100);
+        return {
+            docNo: s.docNo, status: 'Open', onHold: false, shiftNo: 'SHIFT00002', requireShift: true,
+            cashier: 'LEIN\\LEINA', workDate: '27/01/2028',
+            lines: s.lines, lineCount: s.lines.length, itemCount: count, selectedLine: s.lines.length ? s.lines[s.lines.length - 1].lineNo : 0,
+            total: total, amountDue: due, redemption: redemption, paid: paid, stillToPay: still, change: change,
+            payments: s.payments, canComplete: total > 0 && still === 0,
+            loyalty: { enabled: true, phone: s.phone, balance: s.phone ? 340 : 0, pointsToEarn: Math.floor(due / 100),
+                pointsToRedeem: s.redeem, maxRedeemable: s.phone ? Math.min(340, Math.floor(due)) : 0, pointValue: 1 },
+            mpesaPending: s.mpesaPending, mpesaPhone: ''
+        };
+    }
+
+    function ensure() { if (!s.docNo) { s.docNo = 'POS000123'; } }
+
+    function add(item, qty) {
+        ensure();
+        s.lines.push({ lineNo: nextLine, itemNo: item.no, description: item.description, qty: qty, unitPrice: item.price });
+        nextLine += 10000;
+    }
+
+    function line(no) { return s.lines.filter(function (l) { return l.lineNo === no; })[0]; }
+
+    function handle(name, args) {
+        if (name === 'ControlReady') {
+            add(items[0], 2); add(items[2], 1); add(items[4], 1);
+            Render(state());
+            return;
+        }
+        var cmd = args[0];
+        var p = JSON.parse(args[1] || '{}');
+        var st = state();
+        switch (cmd) {
+            case 'scan': add(items[scanIdx++ % items.length], 1); break;
+            case 'addItem': add(items[0], p.qty || 1); break;
+            case 'setQty': line(p.lineNo).qty = p.qty; break;
+            case 'deleteLine': s.lines = s.lines.filter(function (l) { return l.lineNo !== p.lineNo; }); break;
+            case 'payCash': s.payments.push({ method: 'Cash', amount: p.amount > 0 ? p.amount : st.stillToPay }); break;
+            case 'payCard': s.payments.push({ method: 'Card', amount: p.amount }); break;
+            case 'payMpesa': s.mpesaPending = true; s.mpesaAmt = Math.ceil(st.stillToPay);
+                ShowInfo('Payment request sent to ' + p.phone + '. Ask the customer to enter their MPESA PIN.'); break;
+            case 'checkMpesa': s.payments.push({ method: 'MPESA', amount: s.mpesaAmt }); s.mpesaPending = false; ShowInfo('MPESA payment received.'); break;
+            case 'clearPayments': s.payments = s.payments.filter(function (x) { return x.method === 'MPESA'; }); break;
+            case 'loyaltyPhone': ensure(); s.phone = p.phone; s.redeem = 0; break;
+            case 'redeem': s.redeem = p.points; break;
+            case 'post': var ch = st.change; s = blank(); Render(state()); ShowChange(ch); return;
+            case 'newSale': case 'hold': s = blank(); break;
+            case 'recall': ShowPicker([{ kind: 'held', id: 'POS000120', title: 'POS000120', subtitle: 'Held 16:02 · 3 lines', amount: 820 }]); Render(state()); return;
+            case 'closeShift': case 'openShift': ShowInfo('Shift dialog opens in BC.'); break;
+        }
+        Render(state());
+    }
+
+    return { handle: handle };
+})();
+</script>
+<script src="js/till.js"></script>
+<script src="js/startup.js"></script>
+<script>
+    // preview.html?open=cash (or mpesa, card, member, qtyEdit) opens that dialog, for screenshots
+    var m = /[?&]open=(\w+)/.exec(location.search);
+    if (m) { setTimeout(function () { var b = document.querySelector('[data-act="' + m[1] + '"]'); if (b) { b.click(); } }, 400); }
+</script>
+</body>
+</html>

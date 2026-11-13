@@ -4,12 +4,14 @@
 var PosTill = (function () {
     'use strict';
 
+    // Product buttons (middle column) are hidden for now: see ROADMAP item 21.
+    var SHOW_CATALOG = false;
+
     var root = null;
     var ui = {};
     var state = emptyState();
     var catalog = { categories: [], items: [] };
     var category = 'ALL';
-    var entry = '';
     var selected = 0;
     var followBackend = true;
     var overlay = null;
@@ -61,9 +63,20 @@ var PosTill = (function () {
         return isFinite(v) ? v : 0;
     }
 
+    // Keeps digits and (when allowed) one decimal point.
+    function cleanNumber(s, allowDecimal, maxLen) {
+        var out = '';
+        var dot = false;
+        String(s || '').split('').forEach(function (c) {
+            if (c >= '0' && c <= '9') { out += c; }
+            else if (c === '.' && allowDecimal && !dot) { dot = true; out += (out === '' ? '0' : '') + '.'; }
+        });
+        return out.slice(0, maxLen || 12);
+    }
+
     function send(name, payload) {
         // commands that change the lines move the highlight to the line AL reports
-        followBackend = ['scan', 'addItem', 'setQty', 'recallDoc', 'deleteLine', 'newSale', 'hold', 'post'].indexOf(name) >= 0;
+        followBackend = ['scan', 'addItem', 'recallDoc', 'deleteLine', 'newSale', 'hold', 'post'].indexOf(name) >= 0;
         setBusy(true);
         Microsoft.Dynamics.NAV.InvokeExtensibilityMethod('Command', [name, JSON.stringify(payload || {})]);
     }
@@ -79,13 +92,25 @@ var PosTill = (function () {
         }
     }
 
-    // Focus returns to the scan box after every tap so a USB/Bluetooth scanner always types there.
-    // inputmode="none" keeps the on-screen keyboard closed for that automatic focus; tapping the
-    // box itself switches to "text" so the cashier can type an item name.
-    function focusScan() {
-        if (overlay || !ui.scan) { return; }
-        ui.scan.setAttribute('inputmode', 'none');
-        try { ui.scan.focus({ preventScroll: true }); } catch (e) { ui.scan.focus(); }
+    // Focus goes back to the scan box after most taps so a USB/Bluetooth scanner always types there.
+    // inputmode="none" keeps the on-screen keyboard closed for that automatic focus; tapping a box
+    // itself switches it to the real keyboard.
+    function focusInput(input) {
+        if (overlay || !input) { return; }
+        input.setAttribute('inputmode', 'none');
+        try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+    }
+
+    function focusScan() { focusInput(ui.scan); }
+
+    function keyboardOnTap(input, mode) {
+        input.addEventListener('pointerdown', function () {
+            if (input.getAttribute('inputmode') === 'none') {
+                input.setAttribute('inputmode', mode);
+                input.blur();
+                setTimeout(function () { input.focus(); }, 0);
+            }
+        });
     }
 
     function findLine(lineNo) {
@@ -94,6 +119,8 @@ var PosTill = (function () {
         }
         return null;
     }
+
+    function hasSale() { return !!state.docNo; }
 
     // ------------------------------------------------------------------ build
 
@@ -111,84 +138,64 @@ var PosTill = (function () {
         top.appendChild(ui.title);
         top.appendChild(ui.noShift);
         top.appendChild(el('span', 'spacer'));
-        ui.who.className = 'who';
         top.appendChild(ui.who);
         ui.clock = el('span', 'clock', '');
         top.appendChild(ui.clock);
         top.appendChild(btn('New sale', '', 'newSale'));
-        top.appendChild(btn('Recall', '', 'recall'));
+        top.appendChild(btn('Held sales', '', 'recall'));
         ui.shiftBtn = btn('Open shift', '', 'shift');
         top.appendChild(ui.shiftBtn);
         till.appendChild(top);
 
-        var cols = el('div', 'cols');
+        var cols = el('div', 'cols' + (SHOW_CATALOG ? '' : ' two'));
         till.appendChild(cols);
 
-        // left: cart
+        // ---- left: cart
         var left = el('div', 'col');
         ui.scan = el('input', 'scan');
         ui.scan.type = 'text';
-        ui.scan.placeholder = 'Scan barcode, or type item name (3*code for quantity)';
+        ui.scan.placeholder = 'Scan barcode, or type item name and press Enter';
         ui.scan.autocomplete = 'off';
         ui.scan.setAttribute('autocapitalize', 'off');
         ui.scan.setAttribute('inputmode', 'none');
-        ui.scan.addEventListener('pointerdown', function () {
-            if (ui.scan.getAttribute('inputmode') === 'none') {
-                ui.scan.setAttribute('inputmode', 'text');
-                ui.scan.blur();
-                setTimeout(function () { ui.scan.focus(); }, 0);
-            }
-        });
+        keyboardOnTap(ui.scan, 'text');
         ui.scan.addEventListener('keydown', function (e) {
             if (e.key === 'Enter') { e.preventDefault(); submitScan(); }
         });
         left.appendChild(ui.scan);
+
         ui.cart = el('div', 'box cart');
         left.appendChild(ui.cart);
+
+        // loyalty member: one clear button, or the member card once added
+        ui.loyBox = el('div', 'box member');
+        left.appendChild(ui.loyBox);
+
         var totalBox = el('div', 'box totalbox');
         var tl = el('div', '');
         tl.appendChild(el('div', 'items', 'Total'));
         ui.items = el('div', 'items', '0 items');
-        ui.total = el('div', 'big', '0.00');
         tl.appendChild(ui.items);
         totalBox.appendChild(tl);
+        ui.total = el('div', 'big', '0.00');
         totalBox.appendChild(ui.total);
         left.appendChild(totalBox);
-        var cartBtns = el('div', 'row3');
-        cartBtns.appendChild(btn('Qty', '', 'qty'));
-        cartBtns.appendChild(btn('Void line', 'danger', 'void'));
-        cartBtns.appendChild(btn('Hold', '', 'hold'));
-        left.appendChild(cartBtns);
+
+        ui.holdBtn = btn('Hold sale', 'hold', 'hold');
+        totalBox.insertBefore(ui.holdBtn, totalBox.firstChild);
         cols.appendChild(left);
 
-        // middle: catalog + loyalty
-        var mid = el('div', 'col');
-        ui.chips = el('div', 'chips');
-        mid.appendChild(ui.chips);
-        ui.grid = el('div', 'box grid');
-        mid.appendChild(ui.grid);
-        var loy = el('div', 'box loyalty');
-        var info = el('div', 'info');
-        ui.loyPhone = el('span', 'phone', '');
-        ui.loyBal = el('span', 'muted', '');
-        ui.loyClear = btn('x', '', 'memberClear');
-        ui.loyClear.style.minHeight = '36px';
-        info.appendChild(ui.loyPhone);
-        info.appendChild(ui.loyBal);
-        info.appendChild(el('span', 'spacer'));
-        info.appendChild(ui.loyClear);
-        loy.appendChild(info);
-        var lb = el('div', 'btns');
-        ui.memberBtn = btn('Member', '', 'member');
-        ui.redeemBtn = btn('Redeem pts', '', 'redeem');
-        lb.appendChild(ui.memberBtn);
-        lb.appendChild(ui.redeemBtn);
-        loy.appendChild(lb);
-        ui.loyBox = loy;
-        mid.appendChild(loy);
-        cols.appendChild(mid);
+        // ---- middle: product buttons (hidden for now)
+        if (SHOW_CATALOG) {
+            var mid = el('div', 'col');
+            ui.chips = el('div', 'chips');
+            mid.appendChild(ui.chips);
+            ui.grid = el('div', 'box grid');
+            mid.appendChild(ui.grid);
+            cols.appendChild(mid);
+        }
 
-        // right: payment
+        // ---- right: payment
         var right = el('div', 'col');
         var stats = el('div', 'box');
         var s1 = el('div', 'stat topay');
@@ -211,44 +218,33 @@ var PosTill = (function () {
         ui.redemption = el('span', 'val', '0.00');
         ui.redemptionRow.appendChild(ui.redemption);
         stats.appendChild(ui.redemptionRow);
-        ui.payments = el('div', 'payments', '');
-        stats.appendChild(ui.payments);
+        ui.paymentsRow = el('div', 'payments');
+        ui.payments = el('span', '', '');
+        ui.paymentsRow.appendChild(ui.payments);
+        ui.clearPay = btn('Undo', 'undo', 'clearPayments');
+        ui.paymentsRow.appendChild(ui.clearPay);
+        stats.appendChild(ui.paymentsRow);
         right.appendChild(stats);
 
-        ui.entry = el('div', 'entry');
-        ui.entryText = el('span', '', '0');
-        ui.entry.appendChild(ui.entryText);
-        ui.entry.appendChild(el('span', 'hint', 'keypad'));
-        right.appendChild(ui.entry);
-
-        var pad = el('div', 'keypad');
-        ['7', '8', '9', 'back', '4', '5', '6', 'clear', '1', '2', '3', '.', '0', '00'].forEach(function (k) {
-            if (k === 'back') { pad.appendChild(btn('⌫', '', 'key', { k: 'back' })); }
-            else if (k === 'clear') { pad.appendChild(btn('C', '', 'key', { k: 'clear' })); }
-            else { pad.appendChild(btn(k, '', 'key', { k: k })); }
-        });
-        right.appendChild(pad);
-
-        var notes = el('div', 'notes');
-        [100, 500, 1000].forEach(function (n) { notes.appendChild(btn(String(n), '', 'note', { amt: n })); });
-        right.appendChild(notes);
-
+        // payment: each method opens its own dialog
         var pay = el('div', 'pay');
-        pay.appendChild(btn('Cash', 'primary', 'cash'));
-        pay.appendChild(btn('MPESA', 'primary', 'mpesa'));
-        pay.appendChild(btn('Card', 'primary', 'card'));
+        ui.cashBtn = btn('Cash', 'primary', 'cash');
+        pay.appendChild(ui.cashBtn);
+        ui.mpesaBtn = btn('MPESA', 'primary', 'mpesa');
+        pay.appendChild(ui.mpesaBtn);
+        ui.cardBtn = btn('Card', 'primary', 'card');
+        pay.appendChild(ui.cardBtn);
         right.appendChild(pay);
-        ui.mpesaCheck = btn('Check MPESA', 'mpesa-check', 'checkMpesa');
+        right.appendChild(el('div', 'spacer'));
+        ui.mpesaCheck = btn('Waiting for MPESA – check payment', 'mpesa-check', 'checkMpesa');
         right.appendChild(ui.mpesaCheck);
-        ui.clearPay = btn('Clear payments', '', 'clearPayments');
-        right.appendChild(ui.clearPay);
         ui.complete = btn('Complete sale', 'success complete', 'complete');
         right.appendChild(ui.complete);
         cols.appendChild(right);
 
         // events
         root.addEventListener('click', onClick);
-        // keep the focus in the scan box: taps on buttons must not take it away
+        // keep the focus where it is: taps on buttons must not take it away
         root.addEventListener('mousedown', function (e) {
             if (e.target && e.target.closest && e.target.closest('button')) { e.preventDefault(); }
         });
@@ -267,7 +263,6 @@ var PosTill = (function () {
         renderLoyalty();
         renderPay();
         renderCatalog();
-        updateEntry();
     }
 
     function updateClock() {
@@ -291,17 +286,28 @@ var PosTill = (function () {
     function renderCart() {
         ui.cart.innerHTML = '';
         if (!state.lines.length) {
-            ui.cart.appendChild(el('div', 'empty', 'Scan or tap an item to start the sale'));
+            ui.cart.appendChild(el('div', 'empty', 'Scan an item to start the sale'));
             return;
         }
         state.lines.forEach(function (l) {
             var row = el('div', 'line' + (l.lineNo === selected ? ' sel' : ''));
             row.setAttribute('data-act', 'line');
             row.setAttribute('data-line', l.lineNo);
-            row.appendChild(el('div', 'desc', l.description || l.itemNo));
+            var info = el('div', 'info');
+            info.appendChild(el('div', 'desc', l.description || l.itemNo));
+            info.appendChild(el('div', 'price', money(l.unitPrice) + ' each'));
+            row.appendChild(info);
+
+            var ctl = el('div', 'ctl');
+            ctl.appendChild(btn('−', 'step', 'minus', { line: l.lineNo }));
+            var q = btn(qtyText(l.qty), 'qtyval', 'qtyEdit', { line: l.lineNo });
+            q.title = 'Tap to type the quantity';
+            ctl.appendChild(q);
+            ctl.appendChild(btn('+', 'step', 'plus', { line: l.lineNo }));
+            row.appendChild(ctl);
+
             row.appendChild(el('div', 'amt', money(l.amount)));
-            row.appendChild(el('div', 'qty', qtyText(l.qty) + ' × ' + money(l.unitPrice)));
-            row.appendChild(el('div', ''));
+            row.appendChild(btn('✕', 'remove', 'void', { line: l.lineNo }));
             ui.cart.appendChild(row);
         });
         var selRow = ui.cart.querySelector('.line.sel');
@@ -312,24 +318,31 @@ var PosTill = (function () {
         ui.total.textContent = money(state.amountDue);
         var n = state.itemCount || 0;
         ui.items.textContent = qtyText(n) + (n === 1 ? ' item' : ' items');
+        ui.holdBtn.disabled = !state.lines.length;
     }
 
     function renderLoyalty() {
         var l = state.loyalty || {};
+        ui.loyBox.innerHTML = '';
         ui.loyBox.style.display = l.enabled ? '' : 'none';
-        if (l.phone) {
-            ui.loyPhone.textContent = l.phone;
-            var t = l.balance + ' pts';
-            if (l.pointsToRedeem) { t += ' · redeeming ' + l.pointsToRedeem; }
-            if (l.pointsToEarn) { t += ' · earns ' + l.pointsToEarn; }
-            ui.loyBal.textContent = t;
-            ui.loyClear.style.display = '';
-        } else {
-            ui.loyPhone.textContent = 'No member';
-            ui.loyBal.textContent = 'Type the phone number, then tap Member';
-            ui.loyClear.style.display = 'none';
+        if (!l.enabled) { return; }
+        if (!l.phone) {
+            ui.loyBox.className = 'box member none';
+            ui.loyBox.appendChild(btn('★  Add loyalty member', 'addmember', 'member'));
+            return;
         }
-        ui.redeemBtn.disabled = !l.phone;
+        ui.loyBox.className = 'box member on';
+        var info = el('div', 'minfo');
+        info.appendChild(el('div', 'mphone', '★ ' + l.phone));
+        var t = l.balance + ' pts';
+        if (l.pointsToEarn) { t += ' · earns ' + l.pointsToEarn; }
+        if (l.pointsToRedeem) { t += ' · using ' + l.pointsToRedeem; }
+        info.appendChild(el('div', 'mbal', t));
+        ui.loyBox.appendChild(info);
+        var r = btn(l.pointsToRedeem ? 'Change points' : 'Use points', '', 'redeem');
+        r.disabled = !(l.maxRedeemable > 0) && !l.pointsToRedeem;
+        ui.loyBox.appendChild(r);
+        ui.loyBox.appendChild(btn('Remove', '', 'memberClear'));
     }
 
     function renderPay() {
@@ -342,21 +355,25 @@ var PosTill = (function () {
         ui.redemption.textContent = '-' + money(state.redemption);
         var parts = (state.payments || []).map(function (p) { return p.method + ' ' + money(p.amount); });
         ui.payments.textContent = parts.join('  ·  ');
-        ui.payments.style.display = parts.length ? '' : 'none';
+        ui.paymentsRow.style.display = parts.length ? '' : 'none';
         ui.complete.disabled = !state.canComplete;
         ui.mpesaCheck.style.display = state.mpesaPending ? '' : 'none';
-        ui.clearPay.style.display = parts.length ? '' : 'none';
+        var undoable = (state.payments || []).some(function (p) { return p.method !== 'MPESA'; });
+        ui.clearPay.style.display = undoable ? '' : 'none';
+        var canPay = state.stillToPay > 0;
+        ui.cashBtn.disabled = !canPay;
+        ui.mpesaBtn.disabled = !canPay;
+        ui.cardBtn.disabled = !canPay;
     }
 
     function renderCatalog() {
+        if (!SHOW_CATALOG || !ui.grid) { return; }
         ui.chips.innerHTML = '';
         var cats = (catalog.categories || []).slice();
         cats.sort(function (a, b) { return String(a.description).localeCompare(String(b.description)); });
-        var all = btn('All', 'chip' + (category === 'ALL' ? ' on' : ''), 'cat', { code: 'ALL' });
-        ui.chips.appendChild(all);
+        ui.chips.appendChild(btn('All', 'chip' + (category === 'ALL' ? ' on' : ''), 'cat', { code: 'ALL' }));
         cats.forEach(function (c) {
-            var label = c.description || (c.code === '' ? 'Other' : c.code);
-            if (c.code === '') { label = 'Other'; }
+            var label = c.code === '' ? 'Other' : (c.description || c.code);
             ui.chips.appendChild(btn(label, 'chip' + (category === c.code ? ' on' : ''), 'cat', { code: c.code }));
         });
 
@@ -377,10 +394,6 @@ var PosTill = (function () {
             t.appendChild(el('span', 'price', money(i.price)));
             ui.grid.appendChild(t);
         });
-    }
-
-    function updateEntry() {
-        ui.entryText.textContent = entry === '' ? '0' : entry;
     }
 
     // ------------------------------------------------------------------ overlays
@@ -415,10 +428,8 @@ var PosTill = (function () {
         d.appendChild(el('h2', '', title));
         d.appendChild(el('div', '', message));
         var a = el('div', 'actions');
-        var cancel = btn('Cancel', '', 'dlgCancel');
-        var ok = btn(okLabel, 'danger', 'dlgOk');
-        a.appendChild(cancel);
-        a.appendChild(ok);
+        a.appendChild(btn('Cancel', '', 'dlgCancel'));
+        a.appendChild(btn(okLabel, 'danger', 'dlgOk'));
         d.appendChild(a);
         d.addEventListener('click', function (e) {
             var b = e.target.closest ? e.target.closest('button') : null;
@@ -432,6 +443,89 @@ var PosTill = (function () {
         openOverlay(d);
     }
 
+    // A dialog with its own number box and keypad. The box takes keyboard typing too.
+    // opts: title, label, note, value, decimal (bool), maxLen, okLabel, okClass, validate(v) -> error text, onOk(v)
+    function numberDialog(opts) {
+        var d = el('div', 'dialog numdlg');
+        d.appendChild(el('h2', '', opts.title));
+        if (opts.note) { d.appendChild(el('div', 'note', opts.note)); }
+        if (opts.label) { d.appendChild(el('label', 'dlglabel', opts.label)); }
+        var input = el('input', 'dlginput');
+        input.type = 'text';
+        input.autocomplete = 'off';
+        input.setAttribute('inputmode', 'none');
+        input.value = opts.value === undefined || opts.value === null ? '' : String(opts.value);
+        if (opts.placeholder) { input.placeholder = opts.placeholder; }
+        if (!opts.decimal) { input.style.textAlign = 'left'; } // phone numbers and points read left to right
+        d.appendChild(input);
+        var live = el('div', 'dlglive', '');
+        if (opts.live) { d.appendChild(live); }
+        if (opts.quick && opts.quick.length) {
+            var qrow = el('div', 'dlgquick');
+            opts.quick.forEach(function (q) { qrow.appendChild(btn(q.label, '', 'dquick', { v: q.value })); });
+            d.appendChild(qrow);
+        }
+        var err = el('div', 'dlgerr', '');
+        d.appendChild(err);
+        var fresh = input.value !== ''; // first key replaces a pre-filled value
+
+        var pad = el('div', 'dlgpad');
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', opts.decimal ? '.' : 'clear', '0', 'back'].forEach(function (k) {
+            var label = k === 'back' ? '⌫' : (k === 'clear' ? 'C' : k);
+            pad.appendChild(btn(label, '', 'dkey', { k: k }));
+        });
+        d.appendChild(pad);
+
+        var a = el('div', 'actions');
+        a.appendChild(btn('Cancel', '', 'dlgCancel'));
+        a.appendChild(btn(opts.okLabel || 'OK', opts.okClass || 'primary', 'dlgOk'));
+        d.appendChild(a);
+
+        function setValue(v) {
+            input.value = cleanNumber(v, opts.decimal, opts.maxLen);
+            err.textContent = '';
+            if (opts.live) { live.textContent = opts.live(input.value); }
+        }
+
+        function ok() {
+            var v = input.value;
+            var msg = opts.validate ? opts.validate(v) : '';
+            if (msg) { err.textContent = msg; return; }
+            closeOverlay();
+            opts.onOk(v);
+            focusScan();
+        }
+
+        input.addEventListener('input', function () { fresh = false; setValue(input.value); });
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); ok(); }
+            else if (e.key === 'Escape') { e.preventDefault(); closeOverlay(); focusScan(); }
+        });
+        keyboardOnTap(input, opts.decimal ? 'decimal' : 'numeric');
+
+        d.addEventListener('click', function (e) {
+            var b = e.target.closest ? e.target.closest('button') : null;
+            if (!b) { return; }
+            e.stopPropagation();
+            var act = b.getAttribute('data-act');
+            if (act === 'dquick') { setValue(b.getAttribute('data-v')); fresh = true; }
+            else if (act === 'dkey') {
+                var k = b.getAttribute('data-k');
+                if (k === 'back') { setValue(fresh ? '' : input.value.slice(0, -1)); }
+                else if (k === 'clear') { setValue(''); }
+                else { setValue((fresh ? '' : input.value) + k); }
+                fresh = false;
+            } else if (act === 'dlgOk') { ok(); }
+            else { closeOverlay(); focusScan(); }
+        });
+
+        if (opts.live) { live.textContent = opts.live(input.value); }
+        openOverlay(d);
+        input.setAttribute('inputmode', 'none');
+        try { input.focus({ preventScroll: true }); } catch (e2) { input.focus(); }
+        input.select();
+    }
+
     function showPicker(items) {
         var d = el('div', 'dialog');
         var isHeld = items.length && items[0].kind === 'held';
@@ -441,8 +535,7 @@ var PosTill = (function () {
             var b = el('button', 'item', '');
             b.type = 'button';
             var left = el('span', '', it.title);
-            var sub = el('span', 'sub', it.subtitle || '');
-            left.appendChild(sub);
+            left.appendChild(el('span', 'sub', it.subtitle || ''));
             b.appendChild(left);
             b.appendChild(el('span', '', money(it.amount)));
             b.setAttribute('data-id', it.id);
@@ -496,74 +589,176 @@ var PosTill = (function () {
         if (t) { send('scan', { text: t }); }
     }
 
-    function takeEntry() {
-        var v = entry;
-        entry = '';
-        updateEntry();
-        return v;
+    // A barcode typed into a number box by the scanner: treat it as a scan, not as an amount.
+    function looksLikeBarcode(v) { return /^\d{8,}$/.test(v); }
+
+    function openCash() {
+        if (!hasSale() || !(state.stillToPay > 0)) { toast('Nothing left to pay.', true); return; }
+        var due = state.stillToPay;
+        var quick = [{ label: 'Exact ' + money(due), value: '' }];
+        [50, 100, 200, 500, 1000, 2000].forEach(function (n) {
+            if (n > due && quick.length < 5) { quick.push({ label: money(n).replace('.00', ''), value: String(n) }); }
+        });
+        numberDialog({
+            title: 'Cash',
+            note: 'To pay: ' + money(due),
+            label: 'Cash received',
+            placeholder: 'Exact amount',
+            value: '',
+            decimal: true,
+            quick: quick,
+            okLabel: 'Take cash',
+            okClass: 'success',
+            live: function (v) {
+                var n = v === '' ? due : num(v);
+                if (n > due) { return 'Change: ' + money(n - due); }
+                if (n < due) { return 'Still to pay after this: ' + money(due - n); }
+                return 'No change';
+            },
+            validate: function (v) {
+                if (looksLikeBarcode(v)) { return 'That looks like a barcode. Close this and scan the item.'; }
+                if (num(v) - due > 10000) { return 'That would be more than 10,000 change. Check the amount.'; }
+                return '';
+            },
+            onOk: function (v) { send('payCash', { amount: num(v) }); } // empty = exact cash
+        });
     }
 
-    function pressKey(k) {
-        if (k === 'back') { entry = entry.slice(0, -1); }
-        else if (k === 'clear') { entry = ''; }
-        else if (k === '.') { if (entry.indexOf('.') < 0) { entry = (entry === '' ? '0' : entry) + '.'; } }
-        else if (entry.length < 12) { entry = (entry === '0' && k !== '00') ? k : entry + k; if (entry === '00') { entry = '0'; } }
-        updateEntry();
+    function phoneValid(v) {
+        return v.length >= 9 ? '' : 'Enter the full phone number, for example 0712345678.';
+    }
+
+    function openMpesa() {
+        if (!hasSale() || !(state.stillToPay > 0)) { toast('Nothing left to pay.', true); return; }
+        numberDialog({
+            title: 'Pay with MPESA',
+            note: 'The customer gets a prompt on their phone to pay KES ' + money(Math.ceil(state.stillToPay)) +
+                '. They enter their MPESA PIN, then you tap "Check payment".',
+            label: 'Customer phone number',
+            value: (state.loyalty && state.loyalty.phone) || state.mpesaPhone || '',
+            decimal: false,
+            maxLen: 13,
+            okLabel: 'Send payment request',
+            validate: phoneValid,
+            onOk: function (v) { send('payMpesa', { phone: v }); }
+        });
+    }
+
+    function openCard() {
+        if (!hasSale() || !(state.stillToPay > 0)) { toast('Nothing left to pay.', true); return; }
+        numberDialog({
+            title: 'Pay by card',
+            note: 'Charge the card on the terminal, then confirm the amount here.',
+            label: 'Amount charged',
+            value: String(Math.round(state.stillToPay * 100) / 100),
+            decimal: true,
+            okLabel: 'Card paid',
+            validate: function (v) {
+                var n = num(v);
+                if (n <= 0) { return 'Enter the amount.'; }
+                if (n > state.stillToPay + 0.001) { return 'A card cannot pay more than ' + money(state.stillToPay) + '.'; }
+                return '';
+            },
+            onOk: function (v) { send('payCard', { amount: num(v), reference: '' }); }
+        });
+    }
+
+    function openQty(lineNo) {
+        var l = findLine(lineNo);
+        if (!l) { return; }
+        numberDialog({
+            title: 'Quantity',
+            note: l.description || l.itemNo,
+            value: qtyText(l.qty),
+            decimal: true,
+            maxLen: 9,
+            okLabel: 'Set quantity',
+            validate: function (v) { return num(v) > 0 ? '' : 'Enter a quantity above 0. To remove the item, use ✕.'; },
+            onOk: function (v) { send('setQty', { lineNo: lineNo, qty: num(v) }); }
+        });
+    }
+
+    function confirmRemove(lineNo) {
+        var l = findLine(lineNo);
+        if (!l) { return; }
+        confirmDialog('Remove item', 'Remove ' + qtyText(l.qty) + ' × ' + (l.description || l.itemNo) + ' from the sale?', 'Remove', function () {
+            send('deleteLine', { lineNo: lineNo });
+        });
+    }
+
+    function openMember() {
+        numberDialog({
+            title: 'Loyalty member',
+            note: 'Enter the customer\'s phone number. A new number can be registered as a member.',
+            label: 'Phone number',
+            value: '',
+            decimal: false,
+            maxLen: 13,
+            okLabel: 'Add member',
+            validate: phoneValid,
+            onOk: function (v) { send('loyaltyPhone', { phone: v }); }
+        });
+    }
+
+    function openRedeem() {
+        var l = state.loyalty || {};
+        var max = l.maxRedeemable || 0;
+        numberDialog({
+            title: 'Use loyalty points',
+            note: l.phone + ' has ' + l.balance + ' points. Up to ' + max + ' can be used on this sale' +
+                (l.pointValue ? ' (1 point = KES ' + money(l.pointValue) + ').' : '.') + ' Enter 0 to use none.',
+            label: 'Points to use',
+            value: String(l.pointsToRedeem || max),
+            decimal: false,
+            maxLen: 7,
+            okLabel: 'Use points',
+            validate: function (v) { return num(v) > max ? 'At most ' + max + ' points.' : ''; },
+            onOk: function (v) { send('redeem', { points: Math.floor(num(v)) }); }
+        });
     }
 
     function onClick(e) {
         var t = e.target.closest ? e.target.closest('[data-act]') : null;
         if (!t || t.disabled) { return; }
+        if (overlay && overlay.contains(t)) { return; } // dialogs handle their own buttons
         var act = t.getAttribute('data-act');
-        var changed = true;
+        var lineNo = Number(t.getAttribute('data-line')) || 0;
+        var l;
 
         switch (act) {
-            case 'key': pressKey(t.getAttribute('data-k')); break;
             case 'note': send('payCash', { amount: Number(t.getAttribute('data-amt')) }); break;
-            case 'cash': send('payCash', { amount: num(takeEntry()) }); break;
-            case 'card': send('payCard', { amount: num(takeEntry()), reference: '' }); break;
-            case 'mpesa': send('payMpesa', { phone: takeEntry() }); break;
+            case 'cash': openCash(); return;
+            case 'card': openCard(); return;
+            case 'mpesa': openMpesa(); return;
             case 'checkMpesa': send('checkMpesa', {}); break;
             case 'clearPayments': send('clearPayments', {}); break;
             case 'complete': send('post', {}); break;
             case 'tile': send('addItem', { itemNo: t.getAttribute('data-no'), qty: 1 }); break;
             case 'cat': category = t.getAttribute('data-code'); renderCatalog(); break;
-            case 'line':
-                selected = Number(t.getAttribute('data-line'));
-                renderCart();
+            case 'line': selected = lineNo; renderCart(); break;
+            case 'plus':
+                l = findLine(lineNo);
+                if (l) { selected = lineNo; send('setQty', { lineNo: lineNo, qty: Number(l.qty) + 1 }); }
                 break;
-            case 'qty':
-                if (!selected || !findLine(selected)) { toast('Select a line first.', true); break; }
-                var q = num(takeEntry());
-                if (q <= 0) { toast('Enter the quantity on the keypad first.', true); break; }
-                send('setQty', { lineNo: selected, qty: q });
+            case 'minus':
+                l = findLine(lineNo);
+                if (!l) { break; }
+                selected = lineNo;
+                if (Number(l.qty) > 1) { send('setQty', { lineNo: lineNo, qty: Number(l.qty) - 1 }); }
+                else { confirmRemove(lineNo); return; }
                 break;
-            case 'void':
-                if (!selected || !findLine(selected)) { toast('Select a line first.', true); break; }
-                var ln = findLine(selected);
-                var lineNo = selected;
-                confirmDialog('Void line', 'Remove ' + qtyText(ln.qty) + ' × ' + (ln.description || ln.itemNo) + ' from the sale?', 'Remove', function () {
-                    send('deleteLine', { lineNo: lineNo });
-                });
-                break;
+            case 'qtyEdit': selected = lineNo; openQty(lineNo); return;
+            case 'void': confirmRemove(lineNo); return;
             case 'hold': send('hold', {}); break;
             case 'recall': send('recall', {}); break;
             case 'newSale': send('newSale', {}); break;
             case 'shift': send(state.shiftNo ? 'closeShift' : 'openShift', {}); break;
-            case 'member':
-                var phone = takeEntry();
-                if (!phone) { toast('Type the member phone number on the keypad first.', true); break; }
-                send('loyaltyPhone', { phone: phone });
-                break;
+            case 'member': openMember(); return;
             case 'memberClear': send('loyaltyPhone', { phone: '' }); break;
-            case 'redeem':
-                var pts = Math.floor(num(takeEntry()));
-                send('redeem', { points: pts });
-                break;
-            case 'dlgCancel': closeOverlay(); break;
-            default: changed = false;
+            case 'redeem': openRedeem(); return;
+            default: return;
         }
-        if (changed) { focusScan(); }
+        focusScan();
     }
 
     // ------------------------------------------------------------------ AL -> JS
@@ -577,7 +772,7 @@ var PosTill = (function () {
         // follow AL's selection after commands that change the lines; otherwise keep the cashier's tap
         if (followBackend || !findLine(selected)) { selected = state.selectedLine; }
         followBackend = true;
-        if (!state.docNo) { entry = ''; selected = 0; }
+        if (!state.docNo) { selected = 0; }
         renderAll();
         focusScan();
     }

@@ -3,8 +3,8 @@ controladdin "POS Touch Till"
     // Full-screen touch till. The add-in only draws and collects taps; all business logic is in
     // codeunit "POS Till Controller", reached through the Command event. After every command AL answers
     // with Render (the full sale state) and, where needed, ShowPicker / ShowInfo / ShowError / ShowChange.
-    RequestedHeight = 760;
-    MinimumHeight = 600;
+    RequestedHeight = 560; // grows to fill the page (VerticalStretch); starting small avoids a page scrollbar
+    MinimumHeight = 480;
     VerticalStretch = true;
     HorizontalStretch = true;
     VerticalShrink = true;
