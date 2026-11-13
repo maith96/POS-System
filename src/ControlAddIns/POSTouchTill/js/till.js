@@ -197,7 +197,8 @@ var PosTill = (function () {
 
         // ---- right: payment
         var right = el('div', 'col');
-        var stats = el('div', 'box');
+        var stats = el('div', 'box paybox');
+        ui.paybox = stats;
         var s1 = el('div', 'stat topay');
         s1.appendChild(el('span', 'label', 'Still to pay'));
         ui.toPay = el('span', 'val', '0.00');
@@ -228,11 +229,17 @@ var PosTill = (function () {
 
         // payment: each method opens its own dialog
         var pay = el('div', 'pay');
-        ui.cashBtn = btn('Cash', 'primary', 'cash');
+        ui.cashBtn = btn('', 'paybtn cash', 'cash');
+        ui.cashBtn.appendChild(el('span', 'ico', '💵'));
+        ui.cashBtn.appendChild(el('span', '', 'Cash'));
         pay.appendChild(ui.cashBtn);
-        ui.mpesaBtn = btn('MPESA', 'primary', 'mpesa');
+        ui.mpesaBtn = btn('', 'paybtn mpesa', 'mpesa');
+        ui.mpesaBtn.appendChild(el('span', 'ico', '📱'));
+        ui.mpesaBtn.appendChild(el('span', '', 'MPESA'));
         pay.appendChild(ui.mpesaBtn);
-        ui.cardBtn = btn('Card', 'primary', 'card');
+        ui.cardBtn = btn('', 'paybtn card', 'card');
+        ui.cardBtn.appendChild(el('span', 'ico', '💳'));
+        ui.cardBtn.appendChild(el('span', '', 'Card'));
         pay.appendChild(ui.cardBtn);
         right.appendChild(pay);
         right.appendChild(el('div', 'spacer'));
@@ -361,6 +368,7 @@ var PosTill = (function () {
         var undoable = (state.payments || []).some(function (p) { return p.method !== 'MPESA'; });
         ui.clearPay.style.display = undoable ? '' : 'none';
         var canPay = state.stillToPay > 0;
+        ui.paybox.className = 'box paybox' + (canPay ? ' due' : (state.lines.length ? ' settled' : ''));
         ui.cashBtn.disabled = !canPay;
         ui.mpesaBtn.disabled = !canPay;
         ui.cardBtn.disabled = !canPay;

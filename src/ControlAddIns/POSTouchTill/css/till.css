@@ -1,6 +1,6 @@
 /* POS touch till. Flat, calm, high contrast, no external resources. Light by default, dark when the host prefers it. */
 :root {
-    --bg: #eef1f4;
+    --bg: #e8eef6;
     --panel: #ffffff;
     --panel2: #f5f7f9;
     --text: #15191e;
@@ -712,4 +712,193 @@ button.success {
     .stat.topay .val { font-size: 28px; }
     .totalbox .big { font-size: 28px; }
     .numdlg .dlgpad button { min-height: 44px; }
+}
+
+/* ================= vibrancy ================= */
+:root {
+    --brand1: #0b3d91;
+    --brand2: #1976d2;
+    --cash: #0d9488;
+    --mpesa: #2e9e44;
+    --card: #5b4bdb;
+    --gold1: #fff6dc;
+    --gold2: #ffe9a8;
+}
+
+.topbar {
+    background: linear-gradient(90deg, var(--brand1), var(--brand2));
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 6px 8px 6px 16px;
+    box-shadow: 0 4px 14px rgba(11, 61, 145, 0.25);
+}
+
+.topbar .who,
+.topbar .clock {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.topbar .noshift {
+    color: #ffd166;
+}
+
+.topbar button {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #ffffff;
+}
+
+.topbar button.danger {
+    background: #ffd166;
+    border-color: #ffd166;
+    color: #3a2a00;
+}
+
+.box {
+    box-shadow: 0 1px 3px rgba(16, 40, 80, 0.06);
+}
+
+.scan {
+    border-color: var(--brand2);
+}
+
+.scan:focus {
+    box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.2);
+}
+
+.line .step {
+    color: var(--brand2);
+}
+
+.line .ctl {
+    background: #f0f6fd;
+    border-color: #c7dcf3;
+}
+
+.line.sel {
+    background: linear-gradient(90deg, #e3eefb, #f4f8fd);
+}
+
+.line .amt {
+    color: var(--brand1);
+}
+
+/* loyalty in gold */
+.member .addmember {
+    background: linear-gradient(90deg, var(--gold1), #fffaf0);
+    border-color: #e0a930;
+    color: #8a5a00;
+}
+
+.member.on {
+    background: linear-gradient(90deg, var(--gold1), var(--gold2));
+    border-color: #e0a930;
+}
+
+.member.on .mphone {
+    color: #7a4f00;
+}
+
+/* total in a dark band */
+.totalbox {
+    background: linear-gradient(90deg, #102a54, var(--brand1));
+    border-color: #102a54;
+    color: #ffffff;
+}
+
+.totalbox .items {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.totalbox .hold {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.35);
+    color: #ffffff;
+}
+
+/* still to pay: red tint while due, green once paid */
+.paybox {
+    border-left: 6px solid var(--line);
+}
+
+.paybox.due {
+    background: linear-gradient(135deg, #fff1f1, #ffffff 70%);
+    border-left-color: var(--danger);
+}
+
+.paybox.settled {
+    background: linear-gradient(135deg, #e9f8ee, #ffffff 70%);
+    border-left-color: var(--success);
+}
+
+/* payment buttons, one colour each */
+.paybtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: #ffffff;
+    border: 0;
+    min-height: 84px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.paybtn .ico {
+    font-size: 26px;
+    line-height: 1;
+}
+
+.paybtn.cash { background: linear-gradient(160deg, #14b8a6, var(--cash)); }
+.paybtn.mpesa { background: linear-gradient(160deg, #4cc764, var(--mpesa)); }
+.paybtn.card { background: linear-gradient(160deg, #7b6cf0, var(--card)); }
+
+.paybtn:disabled {
+    opacity: 0.3;
+    box-shadow: none;
+}
+
+.complete:not(:disabled) {
+    background: linear-gradient(160deg, #2fbf5b, #178a3c);
+    box-shadow: 0 6px 18px rgba(23, 138, 60, 0.35);
+}
+
+.mpesa-check {
+    background: linear-gradient(90deg, #fff6dc, #ffffff);
+    animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(224, 169, 48, 0.5); }
+    50% { box-shadow: 0 0 0 6px rgba(224, 169, 48, 0); }
+}
+
+/* dialogs */
+.dialog {
+    border-top: 6px solid var(--brand2);
+}
+
+.numdlg .dlgquick button {
+    background: #eef5fd;
+    border-color: #c7dcf3;
+    color: var(--brand1);
+}
+
+.changebox {
+    border-top-color: var(--success);
+}
+
+@media (prefers-color-scheme: dark) {
+    .line .ctl { background: var(--panel2); border-color: var(--line); }
+    .line.sel { background: var(--sel); }
+    .line .amt { color: var(--text); }
+    .paybox.due { background: linear-gradient(135deg, #3a1f22, var(--panel) 70%); }
+    .paybox.settled { background: linear-gradient(135deg, #1d3a27, var(--panel) 70%); }
+    .member .addmember, .member.on { background: #3a2f12; color: #ffd27a; }
+    .numdlg .dlgquick button { background: var(--panel2); color: var(--text); border-color: var(--line); }
+}
+
+@media (max-height: 640px) {
+    .paybtn { min-height: 64px !important; }
+    .paybtn .ico { font-size: 20px; }
 }
