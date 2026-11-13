@@ -17,6 +17,10 @@ codeunit 50152 "POS Shift Management"
         DifferenceDescTxt: Label 'Cash difference shift %1', Comment = '%1 = shift no.';
         NoOpenShiftToCloseErr: Label 'You have no open shift to close.';
         NoCashAccountErr: Label 'Set the Cash Bal. Account in POS Setup before approving a shift with a cash difference.';
+        ZeroCountQst: Label 'Counted cash is 0.00 but %1 is expected in the drawer.\Did you count the cash? Choose No to go back and enter the count.', Comment = '%1 = expected cash';
+        NotPendingRecountErr: Label 'Shift %1 is %2. Only a shift Pending Approval can be recounted.', Comment = '%1 = shift no., %2 = status';
+        NoRecountPermissionErr: Label 'Only a supervisor (permission set POS SUPERVISOR or POS SUPER) can recount a shift.';
+        OwnRecountErr: Label 'You cannot recount your own shift. Ask another supervisor.';
 
     /// <summary>
     /// Opens a new shift for the current user with the given float. Error if the cashier already has an Open or Closing shift.
@@ -81,9 +85,75 @@ codeunit 50152 "POS Shift Management"
         if Shift.Status <> Shift.Status::Open then
             Error(NotOpenErr, Shift."No.", Shift.Status);
 
-        CloseDialog.SetShift(Shift."No.");
-        if CloseDialog.RunModal() = Action::OK then
-            CloseShift(Shift, CloseDialog.GetCountedCash());
+        Shift.CalcFields("Cash Sales");
+        repeat
+            Clear(CloseDialog);
+            CloseDialog.SetShift(Shift."No.");
+            if CloseDialog.RunModal() <> Action::OK then
+                exit;
+        until ConfirmCount(CloseDialog.GetCountedCash(), Shift."Opening Float" + Shift."Cash Sales");
+        CloseShift(Shift, CloseDialog.GetCountedCash());
+    end;
+
+    /// <summary>
+    /// Supervisor recount of a shift Pending Approval (for example when the count was left blank).
+    /// Expected Cash stays as frozen at close; only the counted cash and the difference change. Within
+    /// Max. Cash Difference the shift is closed (recorded as approved by the recounting supervisor);
+    /// otherwise it stays Pending Approval.
+    /// </summary>
+    procedure RecountShiftWithDialog(var Shift: Record "POS Shift")
+    var
+        CloseDialog: Page "POS Close Shift Dialog";
+    begin
+        Shift.Get(Shift."No.");
+        if Shift.Status <> Shift.Status::"Pending Approval" then
+            Error(NotPendingRecountErr, Shift."No.", Shift.Status);
+        if not IsSupervisor() then
+            Error(NoRecountPermissionErr);
+        if Shift."Cashier Code" = UserId() then
+            Error(OwnRecountErr);
+
+        repeat
+            Clear(CloseDialog);
+            CloseDialog.SetShift(Shift."No.");
+            if CloseDialog.RunModal() <> Action::OK then
+                exit;
+        until ConfirmCount(CloseDialog.GetCountedCash(), Shift."Expected Cash");
+        RecountShift(Shift, CloseDialog.GetCountedCash());
+    end;
+
+    procedure RecountShift(var Shift: Record "POS Shift"; CountedCash: Decimal)
+    var
+        POSSetup: Record "POS Setup";
+    begin
+        if CountedCash < 0 then
+            Error(NegativeCountErr);
+        Shift.Get(Shift."No.");
+        if Shift.Status <> Shift.Status::"Pending Approval" then
+            Error(NotPendingRecountErr, Shift."No.", Shift.Status);
+        POSSetup.Get();
+
+        Shift."Counted Cash" := CountedCash;
+        Shift.Difference := Shift."Counted Cash" - Shift."Expected Cash";
+        if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then begin
+            Shift.Status := Shift.Status::Closed;
+            Shift."Approved By" := CopyStr(UserId(), 1, MaxStrLen(Shift."Approved By"));
+            Shift."Approved At" := CurrentDateTime();
+        end;
+        Shift.Modify(true);
+
+        if Shift.Status = Shift.Status::Closed then
+            Message(ShiftClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference))
+        else
+            Message(ShiftPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference));
+    end;
+
+    // A zero count while cash is expected is almost always a blank field: ask before accepting it.
+    local procedure ConfirmCount(CountedCash: Decimal; ExpectedCash: Decimal): Boolean
+    begin
+        if (CountedCash <> 0) or (ExpectedCash <= 0) then
+            exit(true);
+        exit(Confirm(ZeroCountQst, false, FormatAmt(ExpectedCash)));
     end;
 
     /// <summary>

@@ -103,6 +103,24 @@ page 50154 "POS Shift Card"
                     CurrPage.Update(false);
                 end;
             }
+            action(Recount)
+            {
+                Caption = 'Recount';
+                ApplicationArea = All;
+                Image = Recalculate;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec.Status = Rec.Status::"Pending Approval";
+                ToolTip = 'Enter the correct counted cash for a shift Pending Approval, for example when the count was left blank (supervisor only; not your own shift). Expected cash stays as at close.';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    ShiftMgt.RecountShiftWithDialog(Rec);
+                    CurrPage.Update(false);
+                end;
+            }
             action(Approve)
             {
                 Caption = 'Approve';
