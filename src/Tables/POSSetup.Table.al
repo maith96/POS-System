@@ -236,6 +236,11 @@ table 50100 "POS Setup"
             Caption = 'Allow Self-Approval';
             ToolTip = 'Lets a supervisor recount and approve their own shift. Use only where one person is both cashier and supervisor; leave off to keep the four-eyes check.';
         }
+        field(550; "Require Supervisor Count"; Boolean)
+        {
+            Caption = 'Require Supervisor Count';
+            ToolTip = 'When on, closing a shift only hands the drawer over: a supervisor must count it before the shift is final. The cashier never sees the expected cash or the difference.';
+        }
         // Receipt printing
         field(600; "Print Receipt After Posting"; Boolean)
         {

@@ -76,6 +76,13 @@ page 50119 "POS Supervisor Role Center"
                 RunPageView = where(Status = const("Pending Approval"));
                 ToolTip = 'Shifts closed with a cash difference above the allowed maximum.';
             }
+            action(CashierDifferences)
+            {
+                Caption = 'Cashier Differences';
+                ApplicationArea = All;
+                RunObject = page "POS Cashier Differences";
+                ToolTip = 'Cash over and short per cashier for a period, worst first.';
+            }
             action(Items)
             {
                 Caption = 'Items';

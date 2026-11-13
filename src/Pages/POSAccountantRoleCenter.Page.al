@@ -72,6 +72,13 @@ page 50121 "POS Accountant Role Center"
                 RunObject = page "POS Shifts";
                 ToolTip = 'Cashier shifts: opening float, cash sales, counted cash and differences.';
             }
+            action(CashierDifferences)
+            {
+                Caption = 'Cashier Differences';
+                ApplicationArea = All;
+                RunObject = page "POS Cashier Differences";
+                ToolTip = 'Cash over and short per cashier for a period, worst first.';
+            }
             action(PostedPOSSales)
             {
                 Caption = 'Posted POS Sales';

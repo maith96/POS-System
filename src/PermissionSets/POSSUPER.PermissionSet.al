@@ -45,6 +45,7 @@ permissionset 50113 "POS SUPER"
         codeunit "POS Shift Management" = X,
         codeunit "POS Open Shift" = X,
         codeunit "POS Close Shift" = X,
+        page "POS Cashier Differences" = X,
         page "POS Shifts" = X,
         page "POS Shift Card" = X,
         page "POS Open Shift Dialog" = X,

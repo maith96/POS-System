@@ -23,17 +23,51 @@ page 50153 "POS Shifts"
                     ApplicationArea = All;
                     Style = Attention;
                     StyleExpr = Rec.Status = Rec.Status::"Pending Approval";
-                    ToolTip = 'Open, Closing, Pending Approval (cash difference above the maximum) or Closed.';
+                    ToolTip = 'Open, Awaiting Supervisor Count, Pending Approval (cash difference above the maximum) or Closed.';
                 }
                 field("Opening Float"; Rec."Opening Float") { ApplicationArea = All; }
-                field("Cash Sales"; Rec."Cash Sales") { ApplicationArea = All; }
-                field("MPESA Sales"; Rec."MPESA Sales") { ApplicationArea = All; }
-                field("Card Sales"; Rec."Card Sales") { ApplicationArea = All; }
-                field("Expected Cash"; Rec."Expected Cash") { ApplicationArea = All; }
+                field("Cash Sales"; Rec."Cash Sales")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("MPESA Sales"; Rec."MPESA Sales")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("Card Sales"; Rec."Card Sales")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("Expected Cash"; Rec."Expected Cash")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
                 field("Counted Cash"; Rec."Counted Cash") { ApplicationArea = All; }
+                field("Cashier Count"; Rec."Cashier Count")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("Supervisor Count"; Rec."Supervisor Count")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("Count Mismatch"; Rec."Count Mismatch")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                    Style = Unfavorable;
+                    StyleExpr = Rec."Count Mismatch" <> 0;
+                }
                 field(Difference; Rec.Difference)
                 {
                     ApplicationArea = All;
+                    Visible = ShowCashFigures;
                     Style = Unfavorable;
                     StyleExpr = Rec.Difference <> 0;
                 }
@@ -82,6 +116,24 @@ page 50153 "POS Shifts"
                     CurrPage.Update(false);
                 end;
             }
+            action(SupervisorCount)
+            {
+                Caption = 'Supervisor Count';
+                ApplicationArea = All;
+                Image = Calculator;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec.Status = Rec.Status::Closing;
+                ToolTip = 'Count the drawer of a shift the cashier has handed over (supervisor only; not your own shift).';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    ShiftMgt.SupervisorCountWithDialog(Rec);
+                    CurrPage.Update(false);
+                end;
+            }
             action(Recount)
             {
                 Caption = 'Recount';
@@ -120,4 +172,14 @@ page 50153 "POS Shifts"
             }
         }
     }
+
+    var
+        ShowCashFigures: Boolean;
+
+    trigger OnOpenPage()
+    var
+        ShiftMgt: Codeunit "POS Shift Management";
+    begin
+        ShowCashFigures := ShiftMgt.CanSeeCashFigures();
+    end;
 }

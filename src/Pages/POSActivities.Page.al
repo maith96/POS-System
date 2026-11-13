@@ -103,12 +103,6 @@ page 50116 "POS Activities"
                     DrillDownPageId = "POS Sales List";
                     ToolTip = 'POS sales paid by MPESA and posted with today''s work date.';
                 }
-                field("Collected Today"; Rec."Collected Today")
-                {
-                    ApplicationArea = All;
-                    DrillDownPageId = "POS Payment Entries";
-                    ToolTip = 'Total amount paid on POS sales posted with today''s work date.';
-                }
             }
             cuegroup(MPESA)
             {

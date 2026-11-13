@@ -10,7 +10,7 @@ page 50156 "POS Close Shift Dialog"
             group(General)
             {
                 Caption = 'Cash Count';
-                InstructionalText = 'Count all the cash in the drawer, including the float, and enter the total. The expected cash and the difference are shown after you confirm.';
+                InstructionalText = 'Count all the cash in the drawer, including the float, and enter the total. Do not look up the expected cash.';
 
                 field(ShiftNoCtrl; ShiftNo)
                 {
@@ -34,6 +34,19 @@ page 50156 "POS Close Shift Dialog"
     var
         ShiftNo: Code[20];
         CountedCash: Decimal;
+        SupervisorMode: Boolean;
+        SupervisorCaptionTxt: Label 'Supervisor Count';
+
+    trigger OnOpenPage()
+    begin
+        if SupervisorMode then
+            CurrPage.Caption(SupervisorCaptionTxt);
+    end;
+
+    procedure SetSupervisorMode()
+    begin
+        SupervisorMode := true;
+    end;
 
     procedure SetShift(NewShiftNo: Code[20])
     begin

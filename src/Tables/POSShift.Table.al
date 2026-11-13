@@ -35,7 +35,7 @@ table 50151 "POS Shift"
             Caption = 'Status';
             Editable = false;
             OptionMembers = Open,Closing,"Pending Approval",Closed;
-            OptionCaption = 'Open,Closing,Pending Approval,Closed';
+            OptionCaption = 'Open,Awaiting Supervisor Count,Pending Approval,Closed';
         }
         field(50; "Closed At"; DateTime)
         {
@@ -117,6 +117,45 @@ table 50151 "POS Shift"
             Caption = 'Location Code';
             TableRelation = Location;
         }
+        field(170; "Cashier Count"; Decimal)
+        {
+            Caption = 'Cashier Count';
+            AutoFormatType = 1;
+            Editable = false;
+            ToolTip = 'Cash the cashier counted when handing over the shift.';
+        }
+        field(180; "Supervisor Count"; Decimal)
+        {
+            Caption = 'Supervisor Count';
+            AutoFormatType = 1;
+            Editable = false;
+            ToolTip = 'Cash the supervisor counted in the drawer.';
+        }
+        field(190; "Counted By"; Code[50])
+        {
+            Caption = 'Counted By';
+            DataClassification = EndUserIdentifiableInformation;
+            Editable = false;
+            ToolTip = 'Supervisor who counted the drawer.';
+        }
+        field(200; "Counted At"; DateTime)
+        {
+            Caption = 'Counted At';
+            Editable = false;
+        }
+        field(210; "Count Mismatch"; Decimal)
+        {
+            Caption = 'Count Mismatch';
+            AutoFormatType = 1;
+            Editable = false;
+            ToolTip = 'Supervisor count minus cashier count. Not zero means the cashier counted wrongly (or the drawer was touched).';
+        }
+        field(220; "Closed Date"; Date)
+        {
+            Caption = 'Closed Date';
+            Editable = false;
+            ToolTip = 'Date the shift was handed over or closed.';
+        }
     }
 
     keys
@@ -127,5 +166,6 @@ table 50151 "POS Shift"
         }
         key(Cashier; "Cashier Code", Status) { }
         key(Status; Status) { }
+        key(ClosedDate; "Closed Date", "Cashier Code") { }
     }
 }

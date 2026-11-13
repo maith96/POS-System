@@ -78,3 +78,12 @@ New app ID: 8f33f489-bd21-4212-b686-ea0e8b484b43 (old: a1b2c3d4-e5f6-7890-abcd-e
 | codeunit | POS Close Shift | 50159 |
 
 New fields on existing tables (no new table-extension fields): POS Setup 500-530 and 600, POS Payment Line 80 (Shift No.), POS Sales Header 300 (Shift No.), POS Cue 180-200. Version 1.2.0.0.
+
+## New in 1.3
+
+| Type | Name | ID |
+|------|------|----|
+| table | POS Cashier Diff. Buffer (temporary) | 50160 |
+| page | POS Cashier Differences | 50161 |
+
+New fields: POS Shift 170-220 (Cashier Count, Supervisor Count, Counted By, Counted At, Count Mismatch, Closed Date), POS Setup 550 (Require Supervisor Count), POS Cue 210-220 (Shifts Awaiting Count, Cash Short This Month). Version 1.3.0.0.

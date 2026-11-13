@@ -24,6 +24,7 @@ page 50103 "POS Setup"
                 field("Require Open Shift"; Rec."Require Open Shift") { ApplicationArea = All; }
                 field("Shift Nos."; Rec."Shift Nos.") { ApplicationArea = All; }
                 field("Max. Cash Difference"; Rec."Max. Cash Difference") { ApplicationArea = All; }
+                field("Require Supervisor Count"; Rec."Require Supervisor Count") { ApplicationArea = All; }
                 field("Allow Self-Approval"; Rec."Allow Self-Approval") { ApplicationArea = All; }
                 field("Cash Difference Account"; Rec."Cash Difference Account") { ApplicationArea = All; }
             }

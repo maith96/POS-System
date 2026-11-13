@@ -21,26 +21,60 @@ page 50154 "POS Shift Card"
                 {
                     ApplicationArea = All;
                     Style = Strong;
-                    ToolTip = 'Open, Closing, Pending Approval (cash difference above the maximum) or Closed.';
+                    ToolTip = 'Open, Awaiting Supervisor Count, Pending Approval (cash difference above the maximum) or Closed.';
                 }
                 field("Opened At"; Rec."Opened At") { ApplicationArea = All; }
                 field("Closed At"; Rec."Closed At") { ApplicationArea = All; }
+                field("Closed Date"; Rec."Closed Date") { ApplicationArea = All; }
             }
             group(Cash)
             {
                 Caption = 'Cash';
 
                 field("Opening Float"; Rec."Opening Float") { ApplicationArea = All; }
-                field("Cash Sales"; Rec."Cash Sales") { ApplicationArea = All; }
+                field("Cash Sales"; Rec."Cash Sales")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
                 field("Expected Cash"; Rec."Expected Cash")
                 {
                     ApplicationArea = All;
+                    Visible = ShowCashFigures;
                     Style = Strong;
                 }
                 field("Counted Cash"; Rec."Counted Cash") { ApplicationArea = All; }
+                field("Cashier Count"; Rec."Cashier Count")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("Supervisor Count"; Rec."Supervisor Count")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("Count Mismatch"; Rec."Count Mismatch")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                    Style = Unfavorable;
+                    StyleExpr = Rec."Count Mismatch" <> 0;
+                }
+                field("Counted By"; Rec."Counted By")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("Counted At"; Rec."Counted At")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
                 field(Difference; Rec.Difference)
                 {
                     ApplicationArea = All;
+                    Visible = ShowCashFigures;
                     Style = Unfavorable;
                     StyleExpr = Rec.Difference <> 0;
                 }
@@ -50,8 +84,16 @@ page 50154 "POS Shift Card"
                 Caption = 'Sales';
 
                 field("Sales Count"; Rec."Sales Count") { ApplicationArea = All; }
-                field("MPESA Sales"; Rec."MPESA Sales") { ApplicationArea = All; }
-                field("Card Sales"; Rec."Card Sales") { ApplicationArea = All; }
+                field("MPESA Sales"; Rec."MPESA Sales")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
+                field("Card Sales"; Rec."Card Sales")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
             }
             group(Approval)
             {
@@ -93,13 +135,31 @@ page 50154 "POS Shift Card"
                 Promoted = true;
                 PromotedCategory = Process;
                 Enabled = Rec.Status = Rec.Status::Open;
-                ToolTip = 'Count the cash drawer and close this shift. The expected cash and the difference are shown afterwards.';
+                ToolTip = 'Count the cash drawer and close this shift. A supervisor sees the expected cash and the difference.';
 
                 trigger OnAction()
                 var
                     ShiftMgt: Codeunit "POS Shift Management";
                 begin
                     ShiftMgt.CloseShiftWithDialog(Rec."No.");
+                    CurrPage.Update(false);
+                end;
+            }
+            action(SupervisorCount)
+            {
+                Caption = 'Supervisor Count';
+                ApplicationArea = All;
+                Image = Calculator;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec.Status = Rec.Status::Closing;
+                ToolTip = 'Count the drawer of a shift the cashier has handed over (supervisor only; not your own shift).';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    ShiftMgt.SupervisorCountWithDialog(Rec);
                     CurrPage.Update(false);
                 end;
             }
@@ -141,4 +201,14 @@ page 50154 "POS Shift Card"
             }
         }
     }
+
+    var
+        ShowCashFigures: Boolean;
+
+    trigger OnOpenPage()
+    var
+        ShiftMgt: Codeunit "POS Shift Management";
+    begin
+        ShowCashFigures := ShiftMgt.CanSeeCashFigures();
+    end;
 }

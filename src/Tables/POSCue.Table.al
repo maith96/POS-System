@@ -151,6 +151,21 @@ table 50115 "POS Cue"
             CalcFormula = count("POS Shift" where(Status = const("Pending Approval")));
             Editable = false;
         }
+        field(210; "Shifts Awaiting Count"; Integer)
+        {
+            Caption = 'Shifts Awaiting Count';
+            FieldClass = FlowField;
+            CalcFormula = count("POS Shift" where(Status = const(Closing)));
+            Editable = false;
+        }
+        field(220; "Cash Short This Month"; Decimal)
+        {
+            Caption = 'Cash Short This Month';
+            FieldClass = FlowField;
+            CalcFormula = sum("POS Shift".Difference where(Difference = filter('<0'), "Closed Date" = field("Month Filter")));
+            AutoFormatType = 1;
+            Editable = false;
+        }
         field(200; "User Filter"; Code[50])
         {
             Caption = 'User Filter';

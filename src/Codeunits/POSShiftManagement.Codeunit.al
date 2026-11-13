@@ -20,6 +20,15 @@ codeunit 50152 "POS Shift Management"
         ZeroCountQst: Label 'Counted cash is 0.00 but %1 is expected in the drawer.\Did you count the cash? Choose No to go back and enter the count.', Comment = '%1 = expected cash';
         NotPendingRecountErr: Label 'Shift %1 is %2. Only a shift Pending Approval can be recounted.', Comment = '%1 = shift no., %2 = status';
         NoRecountPermissionErr: Label 'Only a supervisor (permission set POS SUPERVISOR or POS SUPER) can recount a shift.';
+        NotClosingErr: Label 'Shift %1 is %2. Only a shift Awaiting Supervisor Count can be counted by a supervisor.', Comment = '%1 = shift no., %2 = status';
+        NoCountPermissionErr: Label 'Only a supervisor (permission set POS SUPERVISOR or POS SUPER) can count a shift.';
+        OwnCountErr: Label 'You cannot count your own shift. Ask another supervisor, or turn on Allow Self-Approval in POS Setup.';
+        HandedOverMsg: Label 'Shift %1 is handed over. A supervisor must count the drawer before it is final.', Comment = '%1 = shift no.';
+        CashierClosedMsg: Label 'Shift %1 closed.', Comment = '%1 = shift no.';
+        CashierPendingMsg: Label 'Shift %1 is closed and needs supervisor approval.', Comment = '%1 = shift no.';
+        ZeroCountNoAmountQst: Label 'Counted cash is 0.00.\Did you count the cash? Choose No to go back and enter the count.';
+        SupervisorCountedClosedMsg: Label 'Shift %1 counted and closed.\Expected cash: %2\Cashier count: %3\Supervisor count: %4\Difference: %5\Count mismatch: %6', Comment = '%1 = shift no., %2 = expected, %3 = cashier count, %4 = supervisor count, %5 = difference, %6 = mismatch';
+        SupervisorCountedPendingMsg: Label 'Shift %1 counted; the difference needs approval.\Expected cash: %2\Cashier count: %3\Supervisor count: %4\Difference: %5\Count mismatch: %6', Comment = '%1 = shift no., %2 = expected, %3 = cashier count, %4 = supervisor count, %5 = difference, %6 = mismatch';
         OwnRecountErr: Label 'You cannot recount your own shift. Ask another supervisor, or turn on Allow Self-Approval in POS Setup.';
 
     /// <summary>
@@ -136,6 +145,8 @@ codeunit 50152 "POS Shift Management"
         POSSetup.Get();
 
         Shift."Counted Cash" := CountedCash;
+        if Shift."Closed Date" = 0D then
+            Shift."Closed Date" := WorkDate(); // shifts closed before 1.3 had none
         Shift.Difference := Shift."Counted Cash" - Shift."Expected Cash";
         if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then begin
             Shift.Status := Shift.Status::Closed;
@@ -155,6 +166,8 @@ codeunit 50152 "POS Shift Management"
     begin
         if (CountedCash <> 0) or (ExpectedCash <= 0) then
             exit(true);
+        if not IsSupervisor() then
+            exit(Confirm(ZeroCountNoAmountQst, false));
         exit(Confirm(ZeroCountQst, false, FormatAmt(ExpectedCash)));
     end;
 
@@ -189,20 +202,104 @@ codeunit 50152 "POS Shift Management"
         POSSetup.Get();
 
         Shift.CalcFields("Cash Sales");
+        Shift."Cashier Count" := CountedCash;
         Shift."Counted Cash" := CountedCash;
         Shift."Expected Cash" := Shift."Opening Float" + Shift."Cash Sales";
-        Shift.Difference := Shift."Counted Cash" - Shift."Expected Cash";
         Shift."Closed At" := CurrentDateTime();
+        Shift."Closed Date" := WorkDate(); // work date, to match the role center month filter
+
+        if POSSetup."Require Supervisor Count" then begin
+            // Two-person count: hand the drawer over; the difference is worked out by the supervisor count.
+            Shift.Status := Shift.Status::Closing;
+            Shift.Modify(true);
+            Message(HandedOverMsg, Shift."No.");
+            exit;
+        end;
+
+        Shift.Difference := Shift."Counted Cash" - Shift."Expected Cash";
         if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then
             Shift.Status := Shift.Status::Closed
         else
             Shift.Status := Shift.Status::"Pending Approval";
         Shift.Modify(true);
 
+        if not IsSupervisor() then begin
+            // Cashiers never see the expected cash or the difference.
+            if Shift.Status = Shift.Status::Closed then
+                Message(CashierClosedMsg, Shift."No.")
+            else
+                Message(CashierPendingMsg, Shift."No.");
+            exit;
+        end;
+
         if Shift.Status = Shift.Status::Closed then
             Message(ShiftClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference))
         else
             Message(ShiftPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference));
+    end;
+
+    /// <summary>
+    /// Supervisor counts the drawer of a shift Awaiting Supervisor Count (status Closing) with the blind dialog.
+    /// A user cannot count their own shift unless Allow Self-Approval is on.
+    /// </summary>
+    procedure SupervisorCountWithDialog(var Shift: Record "POS Shift")
+    var
+        POSSetup: Record "POS Setup";
+        CountDialog: Page "POS Close Shift Dialog";
+    begin
+        Shift.Get(Shift."No.");
+        if Shift.Status <> Shift.Status::Closing then
+            Error(NotClosingErr, Shift."No.", Shift.Status);
+        if not IsSupervisor() then
+            Error(NoCountPermissionErr);
+        POSSetup.Get();
+        if (Shift."Cashier Code" = UserId()) and not POSSetup."Allow Self-Approval" then
+            Error(OwnCountErr);
+
+        repeat
+            Clear(CountDialog);
+            CountDialog.SetShift(Shift."No.");
+            CountDialog.SetSupervisorMode();
+            if CountDialog.RunModal() <> Action::OK then
+                exit;
+        until ConfirmCount(CountDialog.GetCountedCash(), Shift."Expected Cash");
+        SupervisorCount(Shift, CountDialog.GetCountedCash());
+    end;
+
+    /// <summary>
+    /// Records the supervisor count: Difference = supervisor count - expected cash, Count Mismatch = supervisor
+    /// count - cashier count. Within Max. Cash Difference the shift is Closed (approved by the counting
+    /// supervisor), otherwise Pending Approval.
+    /// </summary>
+    procedure SupervisorCount(var Shift: Record "POS Shift"; CountedCash: Decimal)
+    var
+        POSSetup: Record "POS Setup";
+    begin
+        if CountedCash < 0 then
+            Error(NegativeCountErr);
+        Shift.Get(Shift."No.");
+        if Shift.Status <> Shift.Status::Closing then
+            Error(NotClosingErr, Shift."No.", Shift.Status);
+        POSSetup.Get();
+
+        Shift."Supervisor Count" := CountedCash;
+        Shift."Counted Cash" := CountedCash;
+        Shift.Difference := Shift."Counted Cash" - Shift."Expected Cash";
+        Shift."Count Mismatch" := Shift."Supervisor Count" - Shift."Cashier Count";
+        Shift."Counted By" := CopyStr(UserId(), 1, MaxStrLen(Shift."Counted By"));
+        Shift."Counted At" := CurrentDateTime();
+        if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then begin
+            Shift.Status := Shift.Status::Closed;
+            Shift."Approved By" := Shift."Counted By";
+            Shift."Approved At" := Shift."Counted At";
+        end else
+            Shift.Status := Shift.Status::"Pending Approval";
+        Shift.Modify(true);
+
+        if Shift.Status = Shift.Status::Closed then
+            Message(SupervisorCountedClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Cashier Count"), FormatAmt(Shift."Supervisor Count"), FormatAmt(Shift.Difference), FormatAmt(Shift."Count Mismatch"))
+        else
+            Message(SupervisorCountedPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Cashier Count"), FormatAmt(Shift."Supervisor Count"), FormatAmt(Shift.Difference), FormatAmt(Shift."Count Mismatch"));
     end;
 
     /// <summary>
@@ -231,6 +328,8 @@ codeunit 50152 "POS Shift Management"
         Shift."Approved By" := CopyStr(UserId(), 1, MaxStrLen(Shift."Approved By"));
         Shift."Approved At" := CurrentDateTime();
         Shift."Difference Posted" := PostedDifference;
+        if Shift."Closed Date" = 0D then
+            Shift."Closed Date" := WorkDate(); // shifts closed before 1.3 had none
         Shift.Status := Shift.Status::Closed;
         Shift.Modify(true);
     end;
@@ -287,12 +386,31 @@ codeunit 50152 "POS Shift Management"
         GenJnlPostLine.RunWithCheck(GenJnlLine);
     end;
 
-    local procedure IsSupervisor(): Boolean
+    /// <summary>
+    /// Whether the current user has the POS SUPERVISOR, POS SUPER or SUPER permission set.
+    /// </summary>
+    procedure IsSupervisor(): Boolean
     var
         AccessControl: Record "Access Control";
     begin
         AccessControl.SetRange("User Security ID", UserSecurityId());
         AccessControl.SetFilter("Role ID", 'POS SUPERVISOR|POS SUPER|SUPER');
+        exit(not AccessControl.IsEmpty());
+    end;
+
+    /// <summary>
+    /// Who may see a shift's cash figures (sales, expected cash, differences, counts): supervisors and
+    /// accountants. Cashiers may not, so they cannot work out the expected amount before counting.
+    /// Seeing figures does not allow counting, recounting or approving; those still need IsSupervisor().
+    /// </summary>
+    procedure CanSeeCashFigures(): Boolean
+    var
+        AccessControl: Record "Access Control";
+    begin
+        if IsSupervisor() then
+            exit(true);
+        AccessControl.SetRange("User Security ID", UserSecurityId());
+        AccessControl.SetRange("Role ID", 'POS ACCOUNTANT');
         exit(not AccessControl.IsEmpty());
     end;
 

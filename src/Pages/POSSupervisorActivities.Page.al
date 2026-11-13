@@ -76,6 +76,26 @@ page 50118 "POS Supervisor Activities"
                     StyleExpr = Rec."Shifts Pending Approval" > 0;
                     ToolTip = 'Closed shifts whose cash difference is above the allowed maximum and wait for your approval.';
                 }
+                field("Shifts Awaiting Count"; Rec."Shifts Awaiting Count")
+                {
+                    ApplicationArea = All;
+                    DrillDownPageId = "POS Shifts";
+                    Style = Attention;
+                    StyleExpr = Rec."Shifts Awaiting Count" > 0;
+                    ToolTip = 'Shifts handed over by the cashier that wait for a supervisor to count the drawer.';
+                }
+                field("Cash Short This Month"; Rec."Cash Short This Month")
+                {
+                    ApplicationArea = All;
+                    Style = Unfavorable;
+                    StyleExpr = Rec."Cash Short This Month" < 0;
+                    ToolTip = 'Total of negative cash differences on shifts closed this month. Choose to see it per cashier.';
+
+                    trigger OnDrillDown()
+                    begin
+                        Page.Run(Page::"POS Cashier Differences");
+                    end;
+                }
             }
             cuegroup(ETIMS)
             {

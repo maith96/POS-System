@@ -55,6 +55,18 @@ page 50120 "POS Accountant Activities"
                     DrillDownPageId = "POS Sales List";
                     ToolTip = 'Number of POS sales posted this month.';
                 }
+                field("Cash Short This Month"; Rec."Cash Short This Month")
+                {
+                    ApplicationArea = All;
+                    Style = Unfavorable;
+                    StyleExpr = Rec."Cash Short This Month" < 0;
+                    ToolTip = 'Total of negative cash differences on shifts closed this month. Choose to see it per cashier.';
+
+                    trigger OnDrillDown()
+                    begin
+                        Page.Run(Page::"POS Cashier Differences");
+                    end;
+                }
             }
             cuegroup(Reconciliation)
             {

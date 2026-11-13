@@ -17,6 +17,7 @@ Status: ✅ done · 🚧 in progress · ⬜ not started
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 5 | **Shifts and cash-up** | ✅ built, not yet tested in the client | Open shift with float, close with counted cash; expected vs counted; supervisor approves differences. |
+| 18 | **Shift cash controls** | ✅ built, not yet tested in the client | Cashiers no longer see expected cash or differences; optional supervisor count of the drawer (two-person count); cumulative over/short per cashier (POS Cashier Differences) and a Cash Short This Month cue. |
 | 6 | **Receipt printing** | ✅ built, not yet tested in the client | 80 mm thermal layout: items, payments, change, points earned, MPESA code, eTIMS QR. |
 | 7 | **Returns at the till** | ⬜ | Look up receipt, return items, refund cash/MPESA; credit memo + reverse loyalty points. |
 | 8 | **Void / discount approvals** | ⬜ | Supervisor PIN for line discounts, price overrides and cancellations; audit log. |
