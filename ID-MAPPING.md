@@ -87,3 +87,11 @@ New fields on existing tables (no new table-extension fields): POS Setup 500-530
 | page | POS Cashier Differences | 50161 |
 
 New fields: POS Shift 170-220 (Cashier Count, Supervisor Count, Counted By, Counted At, Count Mismatch, Closed Date), POS Setup 550 (Require Supervisor Count), POS Cue 210-220 (Shifts Awaiting Count, Cash Short This Month). Version 1.3.0.0.
+
+## New in 1.4
+
+| Type | Name | ID |
+|------|------|----|
+| page | POS Sale Totals FactBox | 50162 |
+
+New fields: POS Sales Header 310 (On Hold), 320 (Held At) and key Held; POS Cue 230 (Held Sales). New procedure POS Item Lookup.FindItemByName. Version 1.4.0.0.

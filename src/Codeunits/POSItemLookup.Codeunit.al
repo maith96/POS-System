@@ -1,5 +1,51 @@
 codeunit 50114 "POS Item Lookup"
 {
+    /// <summary>
+    /// Search by item name (Description contains the text, case-insensitive; not blocked, not sales blocked).
+    /// One match is returned directly; several open the Item List to pick from (Cancelled = true when the
+    /// cashier closes it without choosing); none returns false.
+    /// </summary>
+    procedure FindItemByName(SearchText: Text; var ItemNo: Code[20]; var Description: Text[100]; var UnitPrice: Decimal; var UOM: Code[10]; var Cancelled: Boolean): Boolean
+    var
+        Item: Record Item;
+        ItemList: Page "Item List";
+        CleanText: Text;
+        MatchCount: Integer;
+    begin
+        Cancelled := false;
+        // Characters that have a meaning in filter expressions are not searched for
+        CleanText := DelChr(SearchText, '<>', ' ');
+        CleanText := DelChr(CleanText, '=', '@*?&|()<>="');
+        CleanText := DelChr(CleanText, '=', '''');
+        if CleanText = '' then
+            exit(false);
+
+        Item.SetFilter(Description, '@*' + CleanText + '*');
+        Item.SetRange(Blocked, false);
+        Item.SetRange("Sales Blocked", false);
+        MatchCount := Item.Count();
+        if MatchCount = 0 then
+            exit(false);
+
+        if MatchCount = 1 then
+            Item.FindFirst()
+        else begin
+            ItemList.SetTableView(Item);
+            ItemList.LookupMode(true);
+            if ItemList.RunModal() <> Action::LookupOK then begin
+                Cancelled := true;
+                exit(false);
+            end;
+            ItemList.GetRecord(Item);
+        end;
+
+        ItemNo := Item."No.";
+        Description := Item.Description;
+        UnitPrice := Item."Unit Price";
+        UOM := Item."Base Unit of Measure";
+        exit(true);
+    end;
+
     procedure FindItemByBarcode(BarcodeValue: Code[50]; var ItemNo: Code[20]; var Description: Text[100]; var UnitPrice: Decimal; var UOM: Code[10]): Boolean
     var
         Item: Record Item;

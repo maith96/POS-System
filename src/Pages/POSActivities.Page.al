@@ -20,6 +20,23 @@ page 50116 "POS Activities"
                     DrillDownPageId = "POS Sales List";
                     ToolTip = 'POS sales that are still open (not posted or cancelled).';
                 }
+                field("Held Sales"; Rec."Held Sales")
+                {
+                    ApplicationArea = All;
+                    Style = Ambiguous;
+                    StyleExpr = Rec."Held Sales" > 0;
+                    ToolTip = 'Your sales that are on hold. Open the till and use Recall Sale to continue one.';
+
+                    trigger OnDrillDown()
+                    var
+                        POSHeader: Record "POS Sales Header";
+                    begin
+                        POSHeader.SetRange(Status, POSHeader.Status::Open);
+                        POSHeader.SetRange("On Hold", true);
+                        POSHeader.SetRange("Cashier Code", CopyStr(UserId(), 1, MaxStrLen(POSHeader."Cashier Code")));
+                        Page.Run(Page::"POS Sales List", POSHeader);
+                    end;
+                }
                 field("Cancelled Sales"; Rec."Cancelled Sales")
                 {
                     ApplicationArea = All;

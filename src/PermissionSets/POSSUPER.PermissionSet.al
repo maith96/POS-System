@@ -34,6 +34,7 @@ permissionset 50113 "POS SUPER"
         page "POS Sales" = X,
         page "POS Sales List" = X,
         page "POS Sales Subform" = X,
+        page "POS Sale Totals FactBox" = X,
         page "MPESA Callback Buffer List" = X,
         page "POS MPESA Callback API" = X,
         codeunit "POS MPESA Management" = X,

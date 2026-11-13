@@ -21,6 +21,7 @@ page 50112 "POS Sales List"
                 field("Customer No."; Rec."Customer No.") { ApplicationArea = All; }
                 field("Location Code"; Rec."Location Code") { ApplicationArea = All; }
                 field(Status; Rec.Status) { ApplicationArea = All; }
+                field("On Hold"; Rec."On Hold") { ApplicationArea = All; }
                 field("Total Amount"; Rec."Total Amount") { ApplicationArea = All; }
                 field("Amount Paid"; Rec."Amount Paid") { ApplicationArea = All; }
                 field("Payment Method"; Rec."Payment Method") { ApplicationArea = All; }

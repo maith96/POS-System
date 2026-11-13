@@ -17,6 +17,7 @@ Status: ✅ done · 🚧 in progress · ⬜ not started
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 5 | **Shifts and cash-up** | ✅ built, not yet tested in the client | Open shift with float, close with counted cash; expected vs counted; supervisor approves differences. |
+| 19 | **Cashier screen quick wins** | ✅ built, not tested in the client | Till (POS Sales): scan box first; `3*barcode` quantity prefix; search by item name (Item List pick when several match); shortcuts F9 Post, F8 Exact Cash, F7 MPESA, Ctrl+Alt+N New Sale, Ctrl+Delete Delete Last Line; Sale Totals FactBox; Quick Cash 50/100/200/500/1000; clutter fields under Show more; new sale starts automatically after posting; Hold Sale / Recall Sale with a Held Sales cue. Void / cancel with supervisor approval is still item 8. |
 | 18 | **Shift cash controls** | ✅ built, not yet tested in the client | Cashiers no longer see expected cash or differences; optional supervisor count of the drawer (two-person count); cumulative over/short per cashier (POS Cashier Differences) and a Cash Short This Month cue. |
 | 6 | **Receipt printing** | ✅ built, not yet tested in the client | 80 mm thermal layout: items, payments, change, points earned, MPESA code, eTIMS QR. |
 | 7 | **Returns at the till** | ⬜ | Look up receipt, return items, refund cash/MPESA; credit memo + reverse loyalty points. |

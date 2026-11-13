@@ -23,9 +23,12 @@ codeunit 50111 "POS Post Sale"
         PointsEarned: Integer;
         ETIMSMgt: Codeunit "POS eTIMS Management";
         ETIMSText: Text;
+        RecallFirstErr: Label 'Recall the sale first.';
     begin
         if POSHeader.Status <> POSHeader.Status::Open then
             Error('Only Open POS documents can be posted.');
+        if POSHeader."On Hold" then
+            Error(RecallFirstErr);
         if POSHeader."Total Amount" <= 0 then
             Error('Nothing to post.');
 

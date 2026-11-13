@@ -185,6 +185,17 @@ table 50101 "POS Sales Header"
             TableRelation = "POS Shift";
             ToolTip = 'The cashier shift this sale belongs to.';
         }
+        field(310; "On Hold"; Boolean)
+        {
+            Caption = 'On Hold';
+            Editable = false;
+            ToolTip = 'The sale is parked while the cashier serves another customer. Recall it to continue.';
+        }
+        field(320; "Held At"; DateTime)
+        {
+            Caption = 'Held At';
+            Editable = false;
+        }
     }
 
     keys
@@ -195,6 +206,7 @@ table 50101 "POS Sales Header"
         }
         key(Status; Status, "Posting Date") { }
         key(Shift; "Shift No.", Status) { }
+        key(Held; "On Hold", Status, "Cashier Code") { }
     }
 
     /// <summary>

@@ -166,6 +166,13 @@ table 50115 "POS Cue"
             AutoFormatType = 1;
             Editable = false;
         }
+        field(230; "Held Sales"; Integer)
+        {
+            Caption = 'Held Sales';
+            FieldClass = FlowField;
+            CalcFormula = count("POS Sales Header" where(Status = const(Open), "On Hold" = const(true), "Cashier Code" = field("User Filter")));
+            Editable = false;
+        }
         field(200; "User Filter"; Code[50])
         {
             Caption = 'User Filter';
