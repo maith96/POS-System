@@ -1,0 +1,6 @@
+# AL symbols and build output
+.alpackages/
+.snapshots/
+*.app
+rad.json
+*.g.xlf
