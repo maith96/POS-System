@@ -231,6 +231,11 @@ table 50100 "POS Setup"
             MinValue = 0;
             AutoFormatType = 1;
         }
+        field(540; "Allow Self-Approval"; Boolean)
+        {
+            Caption = 'Allow Self-Approval';
+            ToolTip = 'Lets a supervisor recount and approve their own shift. Use only where one person is both cashier and supervisor; leave off to keep the four-eyes check.';
+        }
         // Receipt printing
         field(600; "Print Receipt After Posting"; Boolean)
         {

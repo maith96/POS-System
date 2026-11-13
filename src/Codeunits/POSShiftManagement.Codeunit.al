@@ -8,7 +8,7 @@ codeunit 50152 "POS Shift Management"
         NotOpenErr: Label 'Shift %1 is %2. Only an Open shift can be closed.', Comment = '%1 = shift no., %2 = status';
         NotPendingErr: Label 'Shift %1 is %2. Only a shift Pending Approval can be approved.', Comment = '%1 = shift no., %2 = status';
         NoPermissionErr: Label 'Only a supervisor (permission set POS SUPERVISOR or POS SUPER) can approve a shift.';
-        OwnShiftErr: Label 'You cannot approve your own shift. Ask another supervisor.';
+        OwnShiftErr: Label 'You cannot approve your own shift. Ask another supervisor, or turn on Allow Self-Approval in POS Setup.';
         NoOpenShiftErr: Label 'Sale %1 has no open shift. Open a shift first (Open Shift action).', Comment = '%1 = POS document no.';
         ShiftNotOpenErr: Label 'Shift %1 of sale %2 is %3, not Open. Open a new shift first.', Comment = '%1 = shift no., %2 = POS document no., %3 = status';
         ShiftOpenedMsg: Label 'Shift %1 opened with a float of %2.', Comment = '%1 = shift no., %2 = float';
@@ -20,7 +20,7 @@ codeunit 50152 "POS Shift Management"
         ZeroCountQst: Label 'Counted cash is 0.00 but %1 is expected in the drawer.\Did you count the cash? Choose No to go back and enter the count.', Comment = '%1 = expected cash';
         NotPendingRecountErr: Label 'Shift %1 is %2. Only a shift Pending Approval can be recounted.', Comment = '%1 = shift no., %2 = status';
         NoRecountPermissionErr: Label 'Only a supervisor (permission set POS SUPERVISOR or POS SUPER) can recount a shift.';
-        OwnRecountErr: Label 'You cannot recount your own shift. Ask another supervisor.';
+        OwnRecountErr: Label 'You cannot recount your own shift. Ask another supervisor, or turn on Allow Self-Approval in POS Setup.';
 
     /// <summary>
     /// Opens a new shift for the current user with the given float. Error if the cashier already has an Open or Closing shift.
@@ -103,6 +103,7 @@ codeunit 50152 "POS Shift Management"
     /// </summary>
     procedure RecountShiftWithDialog(var Shift: Record "POS Shift")
     var
+        POSSetup: Record "POS Setup";
         CloseDialog: Page "POS Close Shift Dialog";
     begin
         Shift.Get(Shift."No.");
@@ -110,7 +111,8 @@ codeunit 50152 "POS Shift Management"
             Error(NotPendingRecountErr, Shift."No.", Shift.Status);
         if not IsSupervisor() then
             Error(NoRecountPermissionErr);
-        if Shift."Cashier Code" = UserId() then
+        POSSetup.Get();
+        if (Shift."Cashier Code" = UserId()) and not POSSetup."Allow Self-Approval" then
             Error(OwnRecountErr);
 
         repeat
@@ -217,10 +219,10 @@ codeunit 50152 "POS Shift Management"
             Error(NotPendingErr, Shift."No.", Shift.Status);
         if not IsSupervisor() then
             Error(NoPermissionErr);
-        if Shift."Cashier Code" = UserId() then
+        POSSetup.Get();
+        if (Shift."Cashier Code" = UserId()) and not POSSetup."Allow Self-Approval" then
             Error(OwnShiftErr);
 
-        POSSetup.Get();
         if (POSSetup."Cash Difference Account" <> '') and (Shift.Difference <> 0) then begin
             PostDifference(Shift, POSSetup);
             PostedDifference := true;
