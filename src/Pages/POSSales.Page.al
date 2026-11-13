@@ -617,27 +617,20 @@ page 50104 "POS Sales"
     }
 
     var
+        SaleMgt: Codeunit "POS Sale Management";
         ScanBarcode: Text[100];
         LoyaltyEnabled: Boolean;
         PointsBalance: Integer;
         PointsToEarn: Integer;
         StillToPay: Decimal;
         ChangeDue: Decimal;
-        NotFoundErr: Label 'Item with barcode %1 not found.', Comment = '%1 = scanned text';
-        InvalidQtyErr: Label 'The quantity "%1" before the * is not valid. Use a number above zero, e.g. 3*5012345678900.', Comment = '%1 = quantity text';
-        NoItemAfterQtyErr: Label 'Enter a barcode or item name after the quantity.';
-        NoLineToDeleteErr: Label 'There is no line to delete.';
-        SaleNotOpenErr: Label 'The sale is not open.';
-        NothingToHoldErr: Label 'There is nothing to hold: the sale has no lines.';
-        NoHeldSalesErr: Label 'You have no sales on hold.';
-        FinishCurrentSaleErr: Label 'Hold or post the current sale before recalling another one.';
 
     // The page only fills in defaults here; the page itself inserts the record,
     // and the table's OnInsert assigns the document number. Inserting here as well
     // made BC insert the same sale twice ("record already exists").
     trigger OnNewRecord(BelowxRec: Boolean)
     begin
-        SetNewSaleDefaults();
+        SaleMgt.SetNewSaleDefaults(Rec);
     end;
 
     trigger OnAfterGetCurrRecord()
@@ -667,27 +660,10 @@ page 50104 "POS Sales"
             LoyaltyEnabled := POSSetup."Enable Loyalty";
     end;
 
-    local procedure SetNewSaleDefaults()
-    var
-        POSSetup: Record "POS Setup";
-    begin
-        if not POSSetup.Get() then
-            Error('Please configure POS Setup first.');
-
-        Rec."Posting Date" := WorkDate();
-        Rec."Cashier Code" := CopyStr(UserId, 1, MaxStrLen(Rec."Cashier Code"));
-        Rec."Location Code" := POSSetup."Default Location Code";
-        Rec."Customer No." := POSSetup."Default Customer No.";
-        Rec.Status := Rec.Status::Open;
-    end;
-
     local procedure CreateNewSale()
     begin
         CurrPage.SaveRecord();
-        Rec.Reset();
-        Rec.Init();
-        SetNewSaleDefaults();
-        Rec.Insert(true);
+        SaleMgt.StartNewSale(Rec);
         CurrPage.Update(false);
     end;
 
@@ -723,53 +699,25 @@ page 50104 "POS Sales"
     end;
 
     local procedure DeleteLastSaleLine()
-    var
-        POSLine: Record "POS Sales Line";
     begin
         EnsureSaleSaved();
-        if Rec.Status <> Rec.Status::Open then
-            Error(SaleNotOpenErr);
-        POSLine.SetRange("Document No.", Rec."Document No.");
-        if not POSLine.FindLast() then
-            Error(NoLineToDeleteErr);
-        POSLine.Delete(true);
+        SaleMgt.DeleteLastLine(Rec);
     end;
 
     local procedure HoldCurrentSale()
-    var
-        POSLine: Record "POS Sales Line";
     begin
         EnsureSaleSaved();
-        if Rec.Status <> Rec.Status::Open then
-            Error(SaleNotOpenErr);
-        POSLine.SetRange("Document No.", Rec."Document No.");
-        if POSLine.IsEmpty() then
-            Error(NothingToHoldErr);
-
-        Rec."On Hold" := true;
-        Rec."Held At" := CurrentDateTime();
-        Rec.Modify(true);
+        SaleMgt.HoldSale(Rec);
         CreateNewSale();
     end;
 
     local procedure RecallHeldSale()
     var
         HeldSale: Record "POS Sales Header";
-        POSLine: Record "POS Sales Line";
         HeldList: Page "POS Sales List";
     begin
-        // A sale being served must be held or posted first; an empty new sale is simply left behind
-        if (Rec."Document No." <> '') and (Rec.Status = Rec.Status::Open) and not Rec."On Hold" then begin
-            POSLine.SetRange("Document No.", Rec."Document No.");
-            if not POSLine.IsEmpty() then
-                Error(FinishCurrentSaleErr);
-        end;
-
-        HeldSale.SetRange(Status, HeldSale.Status::Open);
-        HeldSale.SetRange("On Hold", true);
-        HeldSale.SetRange("Cashier Code", CopyStr(UserId(), 1, MaxStrLen(HeldSale."Cashier Code")));
-        if HeldSale.IsEmpty() then
-            Error(NoHeldSalesErr);
+        SaleMgt.CheckCanRecallOver(Rec."Document No.");
+        SaleMgt.FilterHeldSales(HeldSale);
 
         HeldList.SetTableView(HeldSale);
         HeldList.LookupMode(true);
@@ -778,110 +726,26 @@ page 50104 "POS Sales"
         HeldList.GetRecord(HeldSale);
 
         Rec.Get(HeldSale."Document No.");
-        Rec."On Hold" := false;
-        Rec."Held At" := 0DT;
-        Rec.Modify(true);
+        SaleMgt.ReleaseHold(Rec);
         CurrPage.Update(false);
     end;
 
     // Handles "3*barcode" / "3xbarcode" quantity prefixes, then barcode / item no. / GTIN, then name search.
     local procedure ProcessScan(Input: Text)
     var
-        ItemLookup: Codeunit "POS Item Lookup";
+        NameMatches: Record Item;
         ItemNo: Code[20];
         Description: Text[100];
         UnitPrice: Decimal;
         UOM: Code[10];
         Qty: Decimal;
-        Cancelled: Boolean;
-        Found: Boolean;
         BarcodeValue: Code[50];
     begin
-        SplitQuantity(Input, Qty);
-
-        Found := false;
-        if StrLen(Input) <= MaxStrLen(BarcodeValue) then begin
-            BarcodeValue := CopyStr(Input, 1, MaxStrLen(BarcodeValue));
-            Found := ItemLookup.FindItemByBarcode(BarcodeValue, ItemNo, Description, UnitPrice, UOM);
+        case SaleMgt.ResolveScan(Input, Qty, ItemNo, Description, UnitPrice, UOM, BarcodeValue, NameMatches, true) of
+            Enum::"POS Scan Result"::Found:
+                SaleMgt.AddItemToSale(Rec, ItemNo, Description, UnitPrice, UOM, Qty, BarcodeValue);
+            Enum::"POS Scan Result"::NotFound:
+                SaleMgt.ErrorNotFound(Input);
         end;
-        if not Found then begin
-            BarcodeValue := '';
-            Found := ItemLookup.FindItemByName(Input, ItemNo, Description, UnitPrice, UOM, Cancelled);
-            if Cancelled then
-                exit;
-        end;
-        if not Found then
-            Error(NotFoundErr, Input);
-
-        AddItemToSale(ItemNo, Description, UnitPrice, UOM, Qty, BarcodeValue);
-    end;
-
-    local procedure SplitQuantity(var Input: Text; var Qty: Decimal)
-    var
-        Prefix: Text;
-        Position: Integer;
-        HasPrefix: Boolean;
-    begin
-        Qty := 1;
-        Input := DelChr(Input, '<>', ' ');
-
-        Position := StrPos(Input, '*');
-        HasPrefix := Position > 0;
-        if not HasPrefix then begin
-            // "3x5012..." only counts as a quantity when everything before the x is a number,
-            // so item names and numbers that merely contain an x are left alone
-            Position := StrPos(UpperCase(Input), 'X');
-            if Position > 1 then
-                HasPrefix := DelChr(CopyStr(Input, 1, Position - 1), '=', '0123456789.,') = '';
-        end;
-        if not HasPrefix then
-            exit;
-
-        Prefix := DelChr(CopyStr(Input, 1, Position - 1), '<>', ' ');
-        Input := DelChr(CopyStr(Input, Position + 1), '<>', ' ');
-        if (Prefix = '') or not Evaluate(Qty, Prefix) then
-            Error(InvalidQtyErr, Prefix);
-        if Qty <= 0 then
-            Error(InvalidQtyErr, Prefix);
-        if Input = '' then
-            Error(NoItemAfterQtyErr);
-    end;
-
-    local procedure AddItemToSale(ItemNo: Code[20]; Description: Text[100]; UnitPrice: Decimal; UOM: Code[10]; Qty: Decimal; BarcodeValue: Code[50])
-    var
-        POSLine: Record "POS Sales Line";
-        NextLineNo: Integer;
-    begin
-        // Try to find existing line with same item → increase qty
-        POSLine.Reset();
-        POSLine.SetRange("Document No.", Rec."Document No.");
-        POSLine.SetRange("Item No.", ItemNo);
-        if POSLine.FindFirst() then begin
-            POSLine.Quantity += Qty;
-            POSLine."Line Amount" := Round(POSLine.Quantity * POSLine."Unit Price", 0.01);
-            POSLine.Modify(true);
-            exit;
-        end;
-
-        // Create new line
-        POSLine.Reset();
-        POSLine.SetRange("Document No.", Rec."Document No.");
-        if POSLine.FindLast() then
-            NextLineNo := POSLine."Line No." + 10000
-        else
-            NextLineNo := 10000;
-
-        POSLine.Init();
-        POSLine."Document No." := Rec."Document No.";
-        POSLine."Line No." := NextLineNo;
-        POSLine."Item No." := ItemNo;
-        POSLine.Description := Description;
-        POSLine."Unit of Measure Code" := UOM;
-        POSLine."Unit Price" := UnitPrice;
-        POSLine.Quantity := Qty;
-        POSLine."Line Amount" := Round(Qty * UnitPrice, 0.01);
-        POSLine."Location Code" := Rec."Location Code";
-        POSLine.Barcode := BarcodeValue;
-        POSLine.Insert(true);
     end;
 }

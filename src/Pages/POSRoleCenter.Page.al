@@ -18,6 +18,14 @@ page 50117 "POS Role Center"
     {
         area(Creation)
         {
+            action(Till)
+            {
+                Caption = 'Till';
+                ApplicationArea = All;
+                Image = Sales;
+                RunObject = page "POS Touch Till";
+                ToolTip = 'Open the full-screen touch till.';
+            }
             action(NewSale)
             {
                 Caption = 'New POS Sale';

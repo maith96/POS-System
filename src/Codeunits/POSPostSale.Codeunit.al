@@ -2,6 +2,9 @@ codeunit 50111 "POS Post Sale"
 {
     TableNo = "POS Sales Header";
 
+    var
+        HideMessages: Boolean;
+
     trigger OnRun()
     begin
         PostPOSDocument(Rec);
@@ -133,7 +136,16 @@ codeunit 50111 "POS Post Sale"
         if POSSetup."Print Receipt After Posting" then
             PrintReceipt(POSHeader);
 
-        ShowPostedMessage(POSHeader, PostedInvoiceNo, PointsEarned, ETIMSText);
+        if not HideMessages then
+            ShowPostedMessage(POSHeader, PostedInvoiceNo, PointsEarned, ETIMSText);
+    end;
+
+    /// <summary>
+    /// Suppresses the "posted successfully" message (the touch till shows the change instead).
+    /// </summary>
+    procedure SetHideMessages(NewHideMessages: Boolean)
+    begin
+        HideMessages := NewHideMessages;
     end;
 
     /// <summary>

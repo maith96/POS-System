@@ -9,21 +9,10 @@ codeunit 50114 "POS Item Lookup"
     var
         Item: Record Item;
         ItemList: Page "Item List";
-        CleanText: Text;
         MatchCount: Integer;
     begin
         Cancelled := false;
-        // Characters that have a meaning in filter expressions are not searched for
-        CleanText := DelChr(SearchText, '<>', ' ');
-        CleanText := DelChr(CleanText, '=', '@*?&|()<>="');
-        CleanText := DelChr(CleanText, '=', '''');
-        if CleanText = '' then
-            exit(false);
-
-        Item.SetFilter(Description, '@*' + CleanText + '*');
-        Item.SetRange(Blocked, false);
-        Item.SetRange("Sales Blocked", false);
-        MatchCount := Item.Count();
+        MatchCount := FindItemsByName(SearchText, Item);
         if MatchCount = 0 then
             exit(false);
 
@@ -44,6 +33,28 @@ codeunit 50114 "POS Item Lookup"
         UnitPrice := Item."Unit Price";
         UOM := Item."Base Unit of Measure";
         exit(true);
+    end;
+
+    /// <summary>
+    /// Filters Item to the sellable items whose Description contains the text (case-insensitive) and
+    /// returns how many match. Used by the name search and by the touch till picker.
+    /// </summary>
+    procedure FindItemsByName(SearchText: Text; var Item: Record Item): Integer
+    var
+        CleanText: Text;
+    begin
+        Item.Reset();
+        // Characters that have a meaning in filter expressions are not searched for
+        CleanText := DelChr(SearchText, '<>', ' ');
+        CleanText := DelChr(CleanText, '=', '@*?&|()<>="');
+        CleanText := DelChr(CleanText, '=', '''');
+        if CleanText = '' then
+            exit(0);
+
+        Item.SetFilter(Description, '@*' + CleanText + '*');
+        Item.SetRange(Blocked, false);
+        Item.SetRange("Sales Blocked", false);
+        exit(Item.Count());
     end;
 
     procedure FindItemByBarcode(BarcodeValue: Code[50]; var ItemNo: Code[20]; var Description: Text[100]; var UnitPrice: Decimal; var UOM: Code[10]): Boolean

@@ -39,6 +39,11 @@ permissionset 50126 "POS CASHIER"
         codeunit "POS eTIMS Send Runner" = X,
         tabledata "POS eTIMS Tax Mapping" = R,
         codeunit "POS Item Lookup" = X,
+        codeunit "POS Sale Management" = X,
+        codeunit "POS Till Controller" = X,
+        codeunit "POS Till Session" = X,
+        page "POS Touch Till" = X,
+        tabledata "Item Category" = R,
         tabledata "POS Shift" = RIM,
         tabledata "Access Control" = R, // hides cash figures from non-supervisors
         codeunit "POS Shift Management" = X,
@@ -119,6 +124,7 @@ permissionset 50128 "POS ACCOUNTANT"
         codeunit "POS Shift Management" = X,
         page "POS Shifts" = X,
         page "POS Shift Card" = X,
+        codeunit "POS Sale Management" = X,
         codeunit "POS Run Trial Balance Excel" = X,
         codeunit "POS Run Aged Rec. Excel" = X;
 }
@@ -154,5 +160,6 @@ permissionset 50129 "POS CUSTOMER CARE"
         page "POS Loyalty Members" = X,
         page "POS Loyalty Entries" = X,
         codeunit "POS Loyalty Management" = X,
+        codeunit "POS Sale Management" = X,
         report "POS Receipt" = X;
 }

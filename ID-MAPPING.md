@@ -95,3 +95,19 @@ New fields: POS Shift 170-220 (Cashier Count, Supervisor Count, Counted By, Coun
 | page | POS Sale Totals FactBox | 50162 |
 
 New fields: POS Sales Header 310 (On Hold), 320 (Held At) and key Held; POS Cue 230 (Held Sales). New procedure POS Item Lookup.FindItemByName. Version 1.4.0.0.
+
+## New in 1.5
+
+| Type | Name | ID |
+|------|------|----|
+| tableextension | POS Item Till (Item) | 50163 |
+| pageextension | POS Item Card Till (Item Card) | 50164 |
+| codeunit | POS Sale Management | 50165 |
+| codeunit | POS Till Controller | 50166 |
+| page | POS Touch Till | 50167 |
+| codeunit | POS Till Session (single instance) | 50168 |
+| enum | POS Scan Result | 50169 |
+| controladdin | POS Touch Till | (no ID) |
+
+New Item fields (table extension): 50151 POS Till Button, 50152 POS Till Sort Order. New procedures: POS Item Lookup.FindItemsByName, POS Post Sale.SetHideMessages. Version 1.5.0.0.
+
