@@ -10,6 +10,7 @@ Status: ✅ done · 🚧 in progress · ⬜ not started
 | 2 | **Mixed / split payments** | ✅ built, not yet test-posted | "Mixed" exists but posting ignores it. Payment lines per sale (e.g. KES 500 cash + rest MPESA); change only from cash. |
 | 3 | **KRA eTIMS** | ✅ built, not tested against KRA sandbox | Posted sales are sent to KRA (saveTrnsSalesOsdc); receipt data + QR link stored on the sale; "Send to eTIMS" retries failures; tax mapping and item eTIMS codes. Printing the QR on the receipt is still part of item 6. |
 | 4 | **App ID and object range** | ✅ published 2026-11-13 (old app uninstalled) | New app ID `8f33f489-…`, range 50100–50499, version 1.1.0.0. Old to new IDs in ID-MAPPING.md. |
+| 17 | **MPESA rounding overpayment** | ⬜ | Pay with MPESA rounds up to whole shillings, so a 99.50 sale paid fully by MPESA takes 100. The 0.50 extra is not cash, so posting is refused ("only cash payments can be more than the amount due"), and an MPESA payment already made cannot really be reduced. Happens whenever prices have cents. Fix options: (a) accept a small MPESA/card overpayment up to a POS Setup limit and post it to a rounding account; (b) round the sale total to whole shillings before payment. |
 
 ## Daily operations
 
