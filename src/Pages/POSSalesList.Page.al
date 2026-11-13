@@ -17,6 +17,7 @@ page 50112 "POS Sales List"
                 field("Document No."; Rec."Document No.") { ApplicationArea = All; }
                 field("Posting Date"; Rec."Posting Date") { ApplicationArea = All; }
                 field("Cashier Code"; Rec."Cashier Code") { ApplicationArea = All; }
+                field("Shift No."; Rec."Shift No.") { ApplicationArea = All; }
                 field("Customer No."; Rec."Customer No.") { ApplicationArea = All; }
                 field("Location Code"; Rec."Location Code") { ApplicationArea = All; }
                 field(Status; Rec.Status) { ApplicationArea = All; }
@@ -34,6 +35,23 @@ page 50112 "POS Sales List"
     {
         area(Processing)
         {
+            action(PrintReceipt)
+            {
+                Caption = 'Print Receipt';
+                ApplicationArea = All;
+                Image = Print;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec.Status = Rec.Status::Posted;
+                ToolTip = 'Print the 80 mm receipt of this posted sale.';
+
+                trigger OnAction()
+                var
+                    POSPost: Codeunit "POS Post Sale";
+                begin
+                    POSPost.PrintReceipt(Rec);
+                end;
+            }
             action(SendToETIMS)
             {
                 Caption = 'Send to eTIMS';

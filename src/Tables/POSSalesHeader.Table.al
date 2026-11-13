@@ -178,6 +178,13 @@ table 50101 "POS Sales Header"
             Editable = false;
             ToolTip = 'Invoice sequence number sent to eTIMS as invcNo. Kept so a retry reuses the same number.';
         }
+        field(300; "Shift No."; Code[20])
+        {
+            Caption = 'Shift No.';
+            Editable = false;
+            TableRelation = "POS Shift";
+            ToolTip = 'The cashier shift this sale belongs to.';
+        }
     }
 
     keys
@@ -187,12 +194,22 @@ table 50101 "POS Sales Header"
             Clustered = true;
         }
         key(Status; Status, "Posting Date") { }
+        key(Shift; "Shift No.", Status) { }
     }
 
     /// <summary>
     /// What the customer still has to pay after loyalty points: Total Amount minus Redemption Amount.
     /// Use this, not Total Amount, for MPESA requests and change calculation.
     /// </summary>
+    trigger OnInsert()
+    var
+        ShiftMgt: Codeunit "POS Shift Management";
+    begin
+        // A new sale belongs to the cashier's open shift, if there is one.
+        if ("Shift No." = '') and ("Cashier Code" <> '') then
+            "Shift No." := ShiftMgt.GetOpenShift("Cashier Code");
+    end;
+
     trigger OnDelete()
     var
         PaymentLine: Record "POS Payment Line";

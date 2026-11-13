@@ -53,6 +53,13 @@ page 50117 "POS Role Center"
                 RunPageView = where(Status = const(Posted));
                 ToolTip = 'POS sales that have been posted.';
             }
+            action(POSShifts)
+            {
+                Caption = 'My Shifts';
+                ApplicationArea = All;
+                RunObject = page "POS Shifts";
+                ToolTip = 'Shifts opened at the till.';
+            }
             action(Items)
             {
                 Caption = 'Items';
@@ -104,6 +111,22 @@ page 50117 "POS Role Center"
         }
         area(Processing)
         {
+            action(OpenShift)
+            {
+                Caption = 'Open Shift';
+                ApplicationArea = All;
+                Image = Start;
+                RunObject = codeunit "POS Open Shift";
+                ToolTip = 'Start your shift with an opening float.';
+            }
+            action(CloseShift)
+            {
+                Caption = 'Close Shift';
+                ApplicationArea = All;
+                Image = Stop;
+                RunObject = codeunit "POS Close Shift";
+                ToolTip = 'Count the cash drawer and close your shift.';
+            }
             action(Setup)
             {
                 Caption = 'POS Setup';

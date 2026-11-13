@@ -38,7 +38,16 @@ permissionset 50126 "POS CASHIER"
         codeunit "POS eTIMS Management" = X,
         codeunit "POS eTIMS Send Runner" = X,
         tabledata "POS eTIMS Tax Mapping" = R,
-        codeunit "POS Item Lookup" = X;
+        codeunit "POS Item Lookup" = X,
+        tabledata "POS Shift" = RIM,
+        codeunit "POS Shift Management" = X,
+        codeunit "POS Open Shift" = X,
+        codeunit "POS Close Shift" = X,
+        page "POS Shifts" = X,
+        page "POS Shift Card" = X,
+        page "POS Open Shift Dialog" = X,
+        page "POS Close Shift Dialog" = X,
+        report "POS Receipt" = X;
 }
 
 permissionset 50127 "POS SUPERVISOR"
@@ -61,6 +70,8 @@ permissionset 50127 "POS SUPERVISOR"
         page "MPESA Callback Buffer List" = X,
         page "POS Supervisor Activities" = X,
         page "POS Supervisor Role Center" = X,
+        tabledata "POS Shift" = RIMD,
+        tabledata "Access Control" = R, // approval check: is the user a supervisor
         codeunit "POS MPESA Callback Handler" = X;
 }
 
@@ -99,6 +110,10 @@ permissionset 50128 "POS ACCOUNTANT"
         codeunit "POS Loyalty Management" = X,
         codeunit "POS MPESA Callback Handler" = X,
         tabledata "POS eTIMS Tax Mapping" = R,
+        tabledata "POS Shift" = R,
+        codeunit "POS Shift Management" = X,
+        page "POS Shifts" = X,
+        page "POS Shift Card" = X,
         codeunit "POS Run Trial Balance Excel" = X,
         codeunit "POS Run Aged Rec. Excel" = X;
 }
@@ -132,5 +147,6 @@ permissionset 50129 "POS CUSTOMER CARE"
         tabledata "POS Loyalty Entry" = R,
         page "POS Loyalty Members" = X,
         page "POS Loyalty Entries" = X,
-        codeunit "POS Loyalty Management" = X;
+        codeunit "POS Loyalty Management" = X,
+        report "POS Receipt" = X;
 }

@@ -137,6 +137,25 @@ table 50115 "POS Cue"
             CalcFormula = count("POS Sales Header" where(Status = const(Posted), "eTIMS Status" = const(Failed)));
             Editable = false;
         }
+        field(180; "My Shift Open"; Integer)
+        {
+            Caption = 'My Shift Open';
+            FieldClass = FlowField;
+            CalcFormula = count("POS Shift" where(Status = const(Open), "Cashier Code" = field("User Filter")));
+            Editable = false;
+        }
+        field(190; "Shifts Pending Approval"; Integer)
+        {
+            Caption = 'Shifts Pending Approval';
+            FieldClass = FlowField;
+            CalcFormula = count("POS Shift" where(Status = const("Pending Approval")));
+            Editable = false;
+        }
+        field(200; "User Filter"; Code[50])
+        {
+            Caption = 'User Filter';
+            FieldClass = FlowFilter;
+        }
     }
 
     keys
@@ -158,6 +177,7 @@ table 50115 "POS Cue"
             Init();
             Insert();
         end;
+        SetRange("User Filter", CopyStr(UserId(), 1, MaxStrLen("User Filter")));
         SetRange("Date Filter", WorkDate());
         SetRange("Month Filter", CalcDate('<-CM>', WorkDate()), CalcDate('<CM>', WorkDate()));
     end;

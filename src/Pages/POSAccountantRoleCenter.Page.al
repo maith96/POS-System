@@ -65,6 +65,13 @@ page 50121 "POS Accountant Role Center"
                 RunObject = page "POS Payment Entries";
                 ToolTip = 'Posted POS payments by method (cash, MPESA, card), net of change.';
             }
+            action(POSShifts)
+            {
+                Caption = 'POS Shifts';
+                ApplicationArea = All;
+                RunObject = page "POS Shifts";
+                ToolTip = 'Cashier shifts: opening float, cash sales, counted cash and differences.';
+            }
             action(PostedPOSSales)
             {
                 Caption = 'Posted POS Sales';

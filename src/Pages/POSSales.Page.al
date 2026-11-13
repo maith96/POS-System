@@ -25,6 +25,11 @@ page 50104 "POS Sales"
                     ApplicationArea = All;
                     Editable = false;
                 }
+                field("Shift No."; Rec."Shift No.")
+                {
+                    ApplicationArea = All;
+                    Editable = false;
+                }
                 field("Customer No."; Rec."Customer No.")
                 {
                     ApplicationArea = All;
@@ -255,6 +260,51 @@ page 50104 "POS Sales"
                 trigger OnAction()
                 begin
                     CreateNewSale();
+                end;
+            }
+            action(OpenShift)
+            {
+                Caption = 'Open Shift';
+                ApplicationArea = All;
+                Image = Start;
+                ToolTip = 'Start your shift with an opening float.';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    ShiftMgt.OpenShiftWithDialog();
+                end;
+            }
+            action(CloseShift)
+            {
+                Caption = 'Close Shift';
+                ApplicationArea = All;
+                Image = Stop;
+                ToolTip = 'Count the cash drawer and close your shift.';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    ShiftMgt.CloseShiftWithDialog('');
+                end;
+            }
+            action(PrintReceipt)
+            {
+                Caption = 'Print Receipt';
+                ApplicationArea = All;
+                Image = Print;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec.Status = Rec.Status::Posted;
+                ToolTip = 'Print the 80 mm receipt of this posted sale.';
+
+                trigger OnAction()
+                var
+                    POSPost: Codeunit "POS Post Sale";
+                begin
+                    POSPost.PrintReceipt(Rec);
                 end;
             }
             action(PostSale)

@@ -206,6 +206,37 @@ table 50100 "POS Setup"
             Editable = false;
             ToolTip = 'Last invoice sequence number sent to eTIMS (invcNo).';
         }
+        // Shifts and cash-up
+        field(500; "Require Open Shift"; Boolean)
+        {
+            Caption = 'Require Open Shift';
+            ToolTip = 'When on, a sale can only be posted while the cashier has an open shift.';
+        }
+        field(510; "Shift Nos."; Code[20])
+        {
+            Caption = 'Shift Nos.';
+            ToolTip = 'Number series used for POS shift numbers.';
+            TableRelation = "No. Series";
+        }
+        field(520; "Cash Difference Account"; Code[20])
+        {
+            Caption = 'Cash Difference Account';
+            ToolTip = 'G/L account that cash over/short is posted to when a supervisor approves a shift with a difference.';
+            TableRelation = "G/L Account" where("Account Type" = const(Posting), Blocked = const(false));
+        }
+        field(530; "Max. Cash Difference"; Decimal)
+        {
+            Caption = 'Max. Cash Difference';
+            ToolTip = 'Shifts closed with a difference within this amount (inclusive) go straight to Closed. A bigger difference needs supervisor approval.';
+            MinValue = 0;
+            AutoFormatType = 1;
+        }
+        // Receipt printing
+        field(600; "Print Receipt After Posting"; Boolean)
+        {
+            Caption = 'Print Receipt After Posting';
+            ToolTip = 'When on, the 80 mm receipt is printed automatically after a sale is posted (and sent to eTIMS).';
+        }
     }
 
     keys

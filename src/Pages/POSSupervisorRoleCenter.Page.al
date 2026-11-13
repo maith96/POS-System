@@ -61,6 +61,21 @@ page 50119 "POS Supervisor Role Center"
                 RunPageView = where(Status = const(Cancelled));
                 ToolTip = 'POS sales that were cancelled.';
             }
+            action(POSShifts)
+            {
+                Caption = 'Shifts';
+                ApplicationArea = All;
+                RunObject = page "POS Shifts";
+                ToolTip = 'Cashier shifts and cash-up. Approve shifts with a cash difference here.';
+            }
+            action(PendingShifts)
+            {
+                Caption = 'Shifts Pending Approval';
+                ApplicationArea = All;
+                RunObject = page "POS Shifts";
+                RunPageView = where(Status = const("Pending Approval"));
+                ToolTip = 'Shifts closed with a cash difference above the allowed maximum.';
+            }
             action(Items)
             {
                 Caption = 'Items';

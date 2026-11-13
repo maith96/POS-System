@@ -251,6 +251,7 @@ codeunit 50137 "POS Payment Management"
                 PaymentLine.Posted := true;
                 PaymentLine."Posting Date" := PostingDate;
                 PaymentLine."Posted Amount" := PostedAmount;
+                PaymentLine."Shift No." := POSHeader."Shift No.";
                 PaymentLine.Modify(false); // skip the open-document check in OnModify
             until PaymentLine.Next() = 0;
 

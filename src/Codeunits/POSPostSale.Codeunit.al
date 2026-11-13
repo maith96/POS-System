@@ -17,6 +17,7 @@ codeunit 50111 "POS Post Sale"
         SalesPost: Codeunit "Sales-Post";
         LoyaltyMgt: Codeunit "POS Loyalty Management";
         PaymentMgt: Codeunit "POS Payment Management";
+        ShiftMgt: Codeunit "POS Shift Management";
         LineNo: Integer;
         PostedInvoiceNo: Code[20];
         PointsEarned: Integer;
@@ -36,6 +37,7 @@ codeunit 50111 "POS Post Sale"
         if not POSSetup.Get() then
             Error('POS Setup is missing.');
 
+        ShiftMgt.CheckShiftForPosting(POSHeader); // Require Open Shift: the sale's shift must be open
         LoyaltyMgt.CheckBeforePosting(POSHeader);
         PaymentMgt.CheckPayments(POSHeader); // fully paid, change only from cash, accounts set up
 
@@ -124,7 +126,24 @@ codeunit 50111 "POS Post Sale"
             Commit();
         end;
 
+        // After eTIMS, so the receipt carries the eTIMS data and QR code
+        if POSSetup."Print Receipt After Posting" then
+            PrintReceipt(POSHeader);
+
         ShowPostedMessage(POSHeader, PostedInvoiceNo, PointsEarned, ETIMSText);
+    end;
+
+    /// <summary>
+    /// Prints the 80 mm receipt of a posted POS sale.
+    /// </summary>
+    procedure PrintReceipt(POSHeader: Record "POS Sales Header")
+    var
+        POSHeaderToPrint: Record "POS Sales Header";
+    begin
+        if POSHeader.Status <> POSHeader.Status::Posted then
+            Error('Only posted sales have a receipt. Post sale %1 first.', POSHeader."Document No.");
+        POSHeaderToPrint.SetRange("Document No.", POSHeader."Document No.");
+        Report.Run(Report::"POS Receipt", false, false, POSHeaderToPrint);
     end;
 
     local procedure ShowPostedMessage(POSHeader: Record "POS Sales Header"; PostedInvoiceNo: Code[20]; PointsEarned: Integer; ETIMSText: Text)

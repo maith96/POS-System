@@ -62,3 +62,19 @@ Field IDs of the Item table extension (extension fields must be inside the app r
 | eTIMS Quantity Unit | 52202473 | 50150 |
 
 New app ID: 8f33f489-bd21-4212-b686-ea0e8b484b43 (old: a1b2c3d4-e5f6-7890-abcd-ef1234567890). Version 1.1.0.0.
+
+## New in 1.2
+
+| Type | Name | ID |
+|------|------|----|
+| table | POS Shift | 50151 |
+| codeunit | POS Shift Management | 50152 |
+| page | POS Shifts | 50153 |
+| page | POS Shift Card | 50154 |
+| page | POS Open Shift Dialog | 50155 |
+| page | POS Close Shift Dialog | 50156 |
+| report | POS Receipt | 50157 |
+| codeunit | POS Open Shift | 50158 |
+| codeunit | POS Close Shift | 50159 |
+
+New fields on existing tables (no new table-extension fields): POS Setup 500-530 and 600, POS Payment Line 80 (Shift No.), POS Sales Header 300 (Shift No.), POS Cue 180-200. Version 1.2.0.0.

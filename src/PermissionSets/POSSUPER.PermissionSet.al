@@ -40,6 +40,16 @@ permissionset 50113 "POS SUPER"
         codeunit "POS MPESA Callback Handler" = X,
         codeunit "POS Post Sale" = X,
         codeunit "POS Item Lookup" = X,
+        tabledata "POS Shift" = RIMD,
+        tabledata "Access Control" = R,
+        codeunit "POS Shift Management" = X,
+        codeunit "POS Open Shift" = X,
+        codeunit "POS Close Shift" = X,
+        page "POS Shifts" = X,
+        page "POS Shift Card" = X,
+        page "POS Open Shift Dialog" = X,
+        page "POS Close Shift Dialog" = X,
+        report "POS Receipt" = X,
         codeunit "POS Run Trial Balance Excel" = X,
         codeunit "POS Run Aged Rec. Excel" = X;
 }

@@ -15,8 +15,8 @@ Status: ✅ done · 🚧 in progress · ⬜ not started
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 5 | **Shifts and cash-up** | ⬜ | Open shift with float, close with counted cash; expected vs counted; supervisor approves differences. |
-| 6 | **Receipt printing** | ⬜ | 80 mm thermal layout: items, payments, change, points earned, MPESA code, eTIMS QR. |
+| 5 | **Shifts and cash-up** | ✅ built, not yet tested in the client | Open shift with float, close with counted cash; expected vs counted; supervisor approves differences. |
+| 6 | **Receipt printing** | ✅ built, not yet tested in the client | 80 mm thermal layout: items, payments, change, points earned, MPESA code, eTIMS QR. |
 | 7 | **Returns at the till** | ⬜ | Look up receipt, return items, refund cash/MPESA; credit memo + reverse loyalty points. |
 | 8 | **Void / discount approvals** | ⬜ | Supervisor PIN for line discounts, price overrides and cancellations; audit log. |
 
@@ -52,3 +52,5 @@ Status: ✅ done · 🚧 in progress · ⬜ not started
 - ✅ Payment posting + split payments: Payments subform on the sale, one customer payment per method applied to the invoice, all in one transaction with the invoice; cues now total posted payments (POS Payments page). Set the Cash / MPESA / Card balancing accounts in POS Setup before posting.
 - ✅ KRA eTIMS: setup group, tax mapping, item eTIMS fields, send after posting (committed first, so failures never roll back the sale), retry action, eTIMS Failed cue. Built and published to BC290 before the renumbering; not tested against the KRA sandbox.
 - ✅ New app ID and object range 50100–50499 (version 1.1.0.0); code compiles, not published yet (uninstall the old app first). See ID-MAPPING.md.
+- ✅ Shifts and cash-up (version 1.2.0.0): POS Shift table, POS Shifts list and card, Open Shift / Close Shift dialogs, supervisor approval of cash differences above Max. Cash Difference (posted to the Cash Difference Account), Require Open Shift check when posting, shift cues for cashier and supervisor. Built and published to BC290; not yet tested in the client.
+- ✅ Receipt printing (version 1.2.0.0): 80 mm RDLC report POS Receipt (items, payments, change, loyalty points, eTIMS data and QR image), Print Receipt action on POS Sales and POS Sales List, optional Print Receipt After Posting. Built and published to BC290; not yet tested in the client or on a thermal printer.

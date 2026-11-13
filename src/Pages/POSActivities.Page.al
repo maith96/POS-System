@@ -40,6 +40,53 @@ page 50116 "POS Activities"
                     }
                 }
             }
+            cuegroup(Shift)
+            {
+                Caption = 'My Shift';
+
+                field("My Shift Open"; Rec."My Shift Open")
+                {
+                    ApplicationArea = All;
+                    DrillDownPageId = "POS Shifts";
+                    Style = Favorable;
+                    StyleExpr = Rec."My Shift Open" > 0;
+                    ToolTip = '1 when you have an open shift, 0 when you have none. Open a shift before you start selling.';
+                }
+
+                actions
+                {
+                    action(OpenShift)
+                    {
+                        Caption = 'Open Shift';
+                        ApplicationArea = All;
+                        Image = TileNew;
+                        ToolTip = 'Start your shift with an opening float.';
+
+                        trigger OnAction()
+                        var
+                            ShiftMgt: Codeunit "POS Shift Management";
+                        begin
+                            ShiftMgt.OpenShiftWithDialog();
+                            CurrPage.Update(false);
+                        end;
+                    }
+                    action(CloseShift)
+                    {
+                        Caption = 'Close Shift';
+                        ApplicationArea = All;
+                        Image = TileBrickCalendar;
+                        ToolTip = 'Count the cash drawer and close your shift.';
+
+                        trigger OnAction()
+                        var
+                            ShiftMgt: Codeunit "POS Shift Management";
+                        begin
+                            ShiftMgt.CloseShiftWithDialog('');
+                            CurrPage.Update(false);
+                        end;
+                    }
+                }
+            }
             cuegroup(Today)
             {
                 Caption = 'Today';

@@ -64,6 +64,19 @@ page 50118 "POS Supervisor Activities"
                     ToolTip = 'MPESA collected today.';
                 }
             }
+            cuegroup(Shifts)
+            {
+                Caption = 'Shifts';
+
+                field("Shifts Pending Approval"; Rec."Shifts Pending Approval")
+                {
+                    ApplicationArea = All;
+                    DrillDownPageId = "POS Shifts";
+                    Style = Attention;
+                    StyleExpr = Rec."Shifts Pending Approval" > 0;
+                    ToolTip = 'Closed shifts whose cash difference is above the allowed maximum and wait for your approval.';
+                }
+            }
             cuegroup(ETIMS)
             {
                 Caption = 'eTIMS';

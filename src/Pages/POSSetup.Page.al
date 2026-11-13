@@ -15,6 +15,16 @@ page 50103 "POS Setup"
                 field("POS Nos."; Rec."POS Nos.") { ApplicationArea = All; }
                 field("Default Location Code"; Rec."Default Location Code") { ApplicationArea = All; }
                 field("Default Customer No."; Rec."Default Customer No.") { ApplicationArea = All; }
+                field("Print Receipt After Posting"; Rec."Print Receipt After Posting") { ApplicationArea = All; }
+            }
+            group(Shifts)
+            {
+                Caption = 'Shifts';
+                InstructionalText = 'Cashiers open a shift with a float and close it with the counted cash. Differences above the maximum need supervisor approval.';
+                field("Require Open Shift"; Rec."Require Open Shift") { ApplicationArea = All; }
+                field("Shift Nos."; Rec."Shift Nos.") { ApplicationArea = All; }
+                field("Max. Cash Difference"; Rec."Max. Cash Difference") { ApplicationArea = All; }
+                field("Cash Difference Account"; Rec."Cash Difference Account") { ApplicationArea = All; }
             }
             group(Integrations)
             {

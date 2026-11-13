@@ -57,6 +57,13 @@ table 50136 "POS Payment Line"
             AutoFormatType = 1;
             ToolTip = 'Amount posted as payment: the amount received minus any change given.';
         }
+        field(80; "Shift No."; Code[20])
+        {
+            Caption = 'Shift No.';
+            Editable = false;
+            TableRelation = "POS Shift";
+            ToolTip = 'The cashier shift this payment was posted in.';
+        }
     }
 
     keys
@@ -66,6 +73,10 @@ table 50136 "POS Payment Line"
             Clustered = true;
         }
         key(Posting; Posted, "Payment Method", "Posting Date")
+        {
+            SumIndexFields = "Posted Amount";
+        }
+        key(Shift; "Shift No.", "Payment Method")
         {
             SumIndexFields = "Posted Amount";
         }
