@@ -203,8 +203,17 @@ table 50101 "POS Sales Header"
     /// </summary>
     trigger OnInsert()
     var
+        POSSetup: Record "POS Setup";
         ShiftMgt: Codeunit "POS Shift Management";
+        NoSeries: Codeunit "No. Series";
     begin
+        // Number assigned at insert (standard BC pattern), so an abandoned new page uses no number.
+        if "Document No." = '' then begin
+            POSSetup.Get();
+            POSSetup.TestField("POS Nos.");
+            "Document No." := NoSeries.GetNextNo(POSSetup."POS Nos.", WorkDate(), true);
+        end;
+
         // A new sale belongs to the cashier's open shift, if there is one.
         if ("Shift No." = '') and ("Cashier Code" <> '') then
             "Shift No." := ShiftMgt.GetOpenShift("Cashier Code");

@@ -64,6 +64,7 @@ page 50104 "POS Sales"
                     trigger OnValidate()
                     begin
                         if ScanBarcode <> '' then begin
+                            EnsureSaleSaved();
                             AddItemByBarcode(ScanBarcode);
                             ScanBarcode := '';
                             CurrPage.Update(false);
@@ -362,6 +363,7 @@ page 50104 "POS Sales"
                 var
                     PaymentMgt: Codeunit "POS Payment Management";
                 begin
+                    EnsureSaleSaved();
                     PaymentMgt.AddExactCash(Rec);
                     CurrPage.Update(false);
                 end;
@@ -382,6 +384,7 @@ page 50104 "POS Sales"
                 begin
                     if Rec."MPESA Phone No." = '' then
                         Error('Enter the customer phone number in the MPESA Phone No. field first.');
+                    EnsureSaleSaved();
                     MPESAMgt.InitiateSTKPush(Rec, Rec."MPESA Phone No.");
                     CurrPage.Update(false);
                 end;
@@ -422,9 +425,12 @@ page 50104 "POS Sales"
         StillToPay: Decimal;
         ChangeDue: Decimal;
 
+    // The page only fills in defaults here; the page itself inserts the record,
+    // and the table's OnInsert assigns the document number. Inserting here as well
+    // made BC insert the same sale twice ("record already exists").
     trigger OnNewRecord(BelowxRec: Boolean)
     begin
-        InitializeNewSale();
+        SetNewSaleDefaults();
     end;
 
     trigger OnAfterGetCurrRecord()
@@ -452,33 +458,39 @@ page 50104 "POS Sales"
     begin
         if POSSetup.Get() then
             LoyaltyEnabled := POSSetup."Enable Loyalty";
-        if Rec."Document No." = '' then
-            InitializeNewSale();
     end;
 
-    local procedure InitializeNewSale()
+    local procedure SetNewSaleDefaults()
     var
         POSSetup: Record "POS Setup";
-        NoSeries: Codeunit "No. Series";
     begin
         if not POSSetup.Get() then
             Error('Please configure POS Setup first.');
 
-        Rec.Init();
-        Rec."Document No." := NoSeries.GetNextNo(POSSetup."POS Nos.", WorkDate(), true);
         Rec."Posting Date" := WorkDate();
         Rec."Cashier Code" := CopyStr(UserId, 1, MaxStrLen(Rec."Cashier Code"));
         Rec."Location Code" := POSSetup."Default Location Code";
         Rec."Customer No." := POSSetup."Default Customer No.";
         Rec.Status := Rec.Status::Open;
-        Rec.Insert(true);
     end;
 
     local procedure CreateNewSale()
     begin
+        CurrPage.SaveRecord();
         Rec.Reset();
-        InitializeNewSale();
+        Rec.Init();
+        SetNewSaleDefaults();
+        Rec.Insert(true);
         CurrPage.Update(false);
+    end;
+
+    // A sale that is still new (not yet saved) has no number; save it first so lines can point at it.
+    local procedure EnsureSaleSaved()
+    begin
+        if Rec."Document No." = '' then begin
+            CurrPage.SaveRecord();
+            Rec.Find();
+        end;
     end;
 
     local procedure AddItemByBarcode(BarcodeValue: Code[50])
