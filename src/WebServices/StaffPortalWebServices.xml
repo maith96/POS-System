@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Publishes the staff portal sign-in codeunit as an OData web service when the extension is installed. -->
+<ExportedData>
+  <TenantWebServiceCollection>
+    <TenantWebService>
+      <ObjectType>CodeUnit</ObjectType>
+      <ServiceName>POSStaffPortal</ServiceName>
+      <ObjectID>50171</ObjectID>
+      <Published>true</Published>
+    </TenantWebService>
+  </TenantWebServiceCollection>
+</ExportedData>

@@ -58,5 +58,14 @@ permissionset 50113 "POS SUPER"
         page "POS Close Shift Dialog" = X,
         report "POS Receipt" = X,
         codeunit "POS Run Trial Balance Excel" = X,
-        codeunit "POS Run Aged Rec. Excel" = X;
+        codeunit "POS Run Aged Rec. Excel" = X,
+        tabledata "POS Portal User" = RIMD,
+        table "POS Portal User" = X,
+        page "POS Portal Users" = X,
+        page "POS Set Portal Password" = X,
+        codeunit "POS Staff Portal" = X,
+        page "POS Portal Shift API" = X,
+        page "POS Portal Sale API" = X,
+        page "POS Portal Sale Line API" = X,
+        page "POS Portal Payment API" = X;
 }

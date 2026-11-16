@@ -79,7 +79,12 @@ permissionset 50127 "POS SUPERVISOR"
         page "POS Cashier Differences" = X,
         tabledata "POS Shift" = RIMD,
         tabledata "Access Control" = R, // approval check: is the user a supervisor
-        codeunit "POS MPESA Callback Handler" = X;
+        codeunit "POS MPESA Callback Handler" = X,
+        tabledata "POS Portal User" = RIMD,
+        table "POS Portal User" = X,
+        page "POS Portal Users" = X,
+        page "POS Set Portal Password" = X,
+        codeunit "POS Staff Portal" = X;
 }
 
 permissionset 50128 "POS ACCOUNTANT"

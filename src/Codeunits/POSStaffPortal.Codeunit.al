@@ -1,0 +1,194 @@
+// Sign-in service for the staff portal. Published as the web service "POSStaffPortal"
+// (see StaffPortalWebServices.xml), so the portal server calls it as OData unbound actions:
+//   POST /ODataV4/POSStaffPortal_SignIn?company=...        { "staffCode": "...", "password": "..." }
+//   POST /ODataV4/POSStaffPortal_ChangePassword?company=... { "staffCode": "...", "oldPassword": "...", "newPassword": "..." }
+//   POST /ODataV4/POSStaffPortal_GetProfile?company=...    { "staffCode": "..." }
+//   POST /ODataV4/POSStaffPortal_SetupUser?company=...     supervisors only, see SetupUser
+// Each returns a JSON text. Wrong passwords never raise an error, so the failed-attempt count is saved.
+codeunit 50171 "POS Staff Portal"
+{
+    Permissions = tabledata "POS Portal User" = RM;
+
+    var
+        MaxFailedAttempts: Integer;
+        LockMinutes: Integer;
+        MinPasswordLength: Integer;
+        WrongSignInErr: Label 'Wrong staff code or password.';
+        LockedErr: Label 'Too many wrong passwords. Try again after %1.', Comment = '%1 = time';
+        BlockedErr: Label 'Your portal access is blocked. Ask your supervisor.';
+        NoPasswordErr: Label 'No password has been set for you yet. Ask your supervisor.';
+        TooShortErr: Label 'The password must be at least %1 characters.', Comment = '%1 = length';
+        SamePasswordErr: Label 'Choose a password different from the old one.';
+        NotSupervisorErr: Label 'Only supervisors can set up staff portal users.';
+
+    procedure SignIn(staffCode: Text; password: Text): Text
+    var
+        PortalUser: Record "POS Portal User";
+    begin
+        Init();
+        if not FindUser(staffCode, PortalUser) then
+            exit(Failure(WrongSignInErr));
+        if PortalUser.Blocked then
+            exit(Failure(BlockedErr));
+        if PortalUser."Locked Until" > CurrentDateTime() then
+            exit(Failure(StrSubstNo(LockedErr, Format(DT2Time(PortalUser."Locked Until"), 0, '<Hours24,2>:<Minutes,2>'))));
+        if not PortalUser.HasPassword() then
+            exit(Failure(NoPasswordErr));
+
+        if Hash(password, PortalUser."Password Salt") <> PortalUser."Password Hash" then begin
+            PortalUser."Failed Attempts" += 1;
+            if PortalUser."Failed Attempts" >= MaxFailedAttempts then begin
+                PortalUser."Locked Until" := CurrentDateTime() + LockMinutes * 60000;
+                PortalUser."Failed Attempts" := 0;
+            end;
+            PortalUser.Modify();
+            exit(Failure(WrongSignInErr));
+        end;
+
+        PortalUser."Failed Attempts" := 0;
+        PortalUser."Locked Until" := 0DT;
+        PortalUser."Last Sign-in" := CurrentDateTime();
+        PortalUser.Modify();
+        exit(Profile(PortalUser));
+    end;
+
+    procedure ChangePassword(staffCode: Text; oldPassword: Text; newPassword: Text): Text
+    var
+        PortalUser: Record "POS Portal User";
+        Result: JsonObject;
+        Value: JsonToken;
+    begin
+        Result.ReadFrom(SignIn(staffCode, oldPassword));
+        Result.Get('ok', Value);
+        if not Value.AsValue().AsBoolean() then
+            exit(Format(Result));
+        if StrLen(newPassword) < MinPasswordLength then
+            exit(Failure(StrSubstNo(TooShortErr, MinPasswordLength)));
+        if newPassword = oldPassword then
+            exit(Failure(SamePasswordErr));
+
+        FindUser(staffCode, PortalUser);
+        StorePassword(PortalUser, newPassword, false);
+        exit(Profile(PortalUser));
+    end;
+
+    // Lets the portal re-check a signed-in user on each visit (blocked, password changed by a supervisor).
+    procedure GetProfile(staffCode: Text): Text
+    var
+        PortalUser: Record "POS Portal User";
+    begin
+        Init();
+        if not FindUser(staffCode, PortalUser) then
+            exit(Failure(WrongSignInErr));
+        if PortalUser.Blocked then
+            exit(Failure(BlockedErr));
+        exit(Profile(PortalUser));
+    end;
+
+    // Used by supervisors in BC (page "POS Portal Users").
+    procedure SetPassword(var PortalUser: Record "POS Portal User"; NewPassword: Text; MustChange: Boolean)
+    begin
+        Init();
+        if StrLen(NewPassword) < MinPasswordLength then
+            Error(TooShortErr, MinPasswordLength);
+        StorePassword(PortalUser, NewPassword, MustChange);
+    end;
+
+    // Web service call for supervisors (setup scripts): creates or updates a portal user and sets a
+    // temporary password. Refused unless the calling BC user is a supervisor, so the portal's own
+    // service account (POS PORTAL API only) can never use it.
+    procedure SetupUser(staffCode: Text; userName: Text; fullName: Text; temporaryPassword: Text): Text
+    var
+        PortalUser: Record "POS Portal User";
+        ShiftMgt: Codeunit "POS Shift Management";
+    begin
+        Init();
+        if not ShiftMgt.IsSupervisor() then
+            exit(Failure(NotSupervisorErr));
+        if (staffCode = '') or (StrLen(staffCode) > MaxStrLen(PortalUser."Staff Code")) then
+            exit(Failure(WrongSignInErr));
+        if StrLen(temporaryPassword) < MinPasswordLength then
+            exit(Failure(StrSubstNo(TooShortErr, MinPasswordLength)));
+        if not PortalUser.Get(UpperCase(staffCode)) then begin
+            PortalUser.Init();
+            PortalUser."Staff Code" := CopyStr(UpperCase(staffCode), 1, MaxStrLen(PortalUser."Staff Code"));
+            PortalUser.Insert(true);
+        end;
+        PortalUser."User Name" := CopyStr(UpperCase(userName), 1, MaxStrLen(PortalUser."User Name"));
+        PortalUser."Full Name" := CopyStr(fullName, 1, MaxStrLen(PortalUser."Full Name"));
+        PortalUser.Modify(true);
+        StorePassword(PortalUser, temporaryPassword, true);
+        exit(Profile(PortalUser));
+    end;
+
+    procedure Unlock(var PortalUser: Record "POS Portal User")
+    begin
+        PortalUser."Failed Attempts" := 0;
+        PortalUser."Locked Until" := 0DT;
+        PortalUser.Modify(true);
+    end;
+
+    procedure MinimumPasswordLength(): Integer
+    begin
+        Init();
+        exit(MinPasswordLength);
+    end;
+
+    local procedure StorePassword(var PortalUser: Record "POS Portal User"; NewPassword: Text; MustChange: Boolean)
+    begin
+        PortalUser."Password Salt" := CopyStr(DelChr(Format(CreateGuid()), '=', '{}-'), 1, MaxStrLen(PortalUser."Password Salt"));
+        PortalUser."Password Hash" := CopyStr(Hash(NewPassword, PortalUser."Password Salt"), 1, MaxStrLen(PortalUser."Password Hash"));
+        PortalUser."Must Change Password" := MustChange;
+        PortalUser."Failed Attempts" := 0;
+        PortalUser."Locked Until" := 0DT;
+        PortalUser."Password Changed At" := CurrentDateTime();
+        PortalUser.Modify(true);
+    end;
+
+    local procedure Hash(Password: Text; Salt: Text): Text
+    var
+        Rfc2898: Codeunit Rfc2898DeriveBytes;
+        HashAlgorithmType: Option HMACMD5,HMACSHA1,HMACSHA256,HMACSHA384,HMACSHA512;
+    begin
+        exit(Rfc2898.HashRfc2898DeriveBytes(Password, Salt, 32, HashAlgorithmType::HMACSHA256));
+    end;
+
+    local procedure FindUser(StaffCode: Text; var PortalUser: Record "POS Portal User"): Boolean
+    begin
+        if (StaffCode = '') or (StrLen(StaffCode) > MaxStrLen(PortalUser."Staff Code")) then
+            exit(false);
+        exit(PortalUser.Get(UpperCase(StaffCode)));
+    end;
+
+    local procedure Profile(PortalUser: Record "POS Portal User"): Text
+    var
+        POSSetup: Record "POS Setup";
+        Result: JsonObject;
+    begin
+        if POSSetup.Get() then;
+        Result.Add('ok', true);
+        Result.Add('staffCode', PortalUser."Staff Code");
+        Result.Add('userName', PortalUser."User Name");
+        Result.Add('fullName', PortalUser."Full Name");
+        Result.Add('location', POSSetup."Default Location Code");
+        Result.Add('mustChangePassword', PortalUser."Must Change Password");
+        Result.Add('passwordChangedAt', PortalUser."Password Changed At");
+        exit(Format(Result));
+    end;
+
+    local procedure Failure(Message: Text): Text
+    var
+        Result: JsonObject;
+    begin
+        Result.Add('ok', false);
+        Result.Add('error', Message);
+        exit(Format(Result));
+    end;
+
+    local procedure Init()
+    begin
+        MaxFailedAttempts := 5;
+        LockMinutes := 15;
+        MinPasswordLength := 8;
+    end;
+}
