@@ -20,6 +20,7 @@ page 50172 "POS Portal Users"
                     Caption = 'User Name (legacy)';
                 }
                 field("Full Name"; Rec."Full Name") { }
+                field(Role; Rec.Role) { }
                 field(Blocked; Rec.Blocked) { }
                 field(PasswordSet; Rec.HasPassword())
                 {

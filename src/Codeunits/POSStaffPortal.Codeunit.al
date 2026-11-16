@@ -4,6 +4,8 @@
 //   POST /ODataV4/POSStaffPortal_ChangePassword?company=... { "staffCode": "...", "oldPassword": "...", "newPassword": "..." }
 //   POST /ODataV4/POSStaffPortal_GetProfile?company=...    { "staffCode": "..." }
 //   POST /ODataV4/POSStaffPortal_SetupEmployee?company=... supervisors only, see SetupEmployee
+//   POST /ODataV4/POSStaffPortal_SetRole?company=...       supervisors only, see SetRole
+//   POST /ODataV4/POSStaffPortal_Cashiers?company=...      { "staffCode": "..." } portal supervisors and admins only, see Cashiers
 // Each returns a JSON text. Wrong passwords never raise an error, so the failed-attempt count is saved.
 codeunit 50171 "POS Staff Portal"
 {
@@ -20,6 +22,9 @@ codeunit 50171 "POS Staff Portal"
         SamePasswordErr: Label 'Choose a password different from the old one.';
         NotSupervisorErr: Label 'Only supervisors can set up staff portal users.';
         NoEmployeeErr: Label 'Employee %1 does not exist.', Comment = '%1 = employee no.';
+        NoPortalUserErr: Label 'Staff code %1 has no staff portal user.', Comment = '%1 = staff code';
+        BadRoleErr: Label 'Role must be cashier, supervisor or admin.';
+        NotAdminErr: Label 'Only portal supervisors and admins can list cashiers.';
         EmployeeNotActiveErr: Label 'Employee %1 is not active.', Comment = '%1 = employee no.';
 
     procedure SignIn(staffCode: Text; password: Text): Text
@@ -123,6 +128,63 @@ codeunit 50171 "POS Staff Portal"
         exit(Profile(PortalUser));
     end;
 
+    // Web service call for supervisors (setup scripts): sets the staff portal role of a portal user.
+    procedure SetRole(staffCode: Text; role: Text): Text
+    var
+        PortalUser: Record "POS Portal User";
+        ShiftMgt: Codeunit "POS Shift Management";
+        NewRole: Enum "POS Portal Role";
+    begin
+        Init();
+        if not ShiftMgt.IsSupervisor() then
+            exit(Failure(NotSupervisorErr));
+        if not FindUser(staffCode, PortalUser) then
+            exit(Failure(StrSubstNo(NoPortalUserErr, staffCode)));
+        case LowerCase(role) of
+            'cashier':
+                NewRole := NewRole::Cashier;
+            'supervisor':
+                NewRole := NewRole::Supervisor;
+            'admin':
+                NewRole := NewRole::Admin;
+            else
+                exit(Failure(BadRoleErr));
+        end;
+        PortalUser.Validate(Role, NewRole);
+        PortalUser.Modify(true);
+        exit(Profile(PortalUser));
+    end;
+
+    // The cashiers the Admin section can filter by: every portal user with a cashier code. Only for a portal user
+    // with the role Supervisor or Admin who passes the usual access check; the portal server calls it with the
+    // staff code of the signed-in user. Returns [{ "code": "...", "name": "..." }].
+    procedure Cashiers(staffCode: Text): Text
+    var
+        PortalUser: Record "POS Portal User";
+        Caller: Record "POS Portal User";
+        Access: Codeunit "POS Portal Access";
+        Result: JsonArray;
+        Entry: JsonObject;
+    begin
+        Init();
+        if not FindUser(staffCode, Caller) then
+            exit(Failure(WrongSignInErr));
+        if Access.AccessProblem(Caller) <> '' then
+            exit(Failure(Access.AccessProblem(Caller)));
+        if Caller.Role = Caller.Role::Cashier then
+            exit(Failure(NotAdminErr));
+        if PortalUser.FindSet() then
+            repeat
+                if PortalUser.CashierCode() <> '' then begin
+                    Clear(Entry);
+                    Entry.Add('code', PortalUser.CashierCode());
+                    Entry.Add('name', Access.CashierName(PortalUser.CashierCode()));
+                    Result.Add(Entry);
+                end;
+            until PortalUser.Next() = 0;
+        exit(Format(Result));
+    end;
+
     procedure Unlock(var PortalUser: Record "POS Portal User")
     begin
         PortalUser."Failed Attempts" := 0;
@@ -174,6 +236,7 @@ codeunit 50171 "POS Staff Portal"
         Result.Add('employeeNo', PortalUser."Employee No.");
         Result.Add('userName', PortalUser."User Name");
         Result.Add('fullName', PortalUser."Full Name");
+        Result.Add('role', LowerCase(Format(PortalUser.Role)));
         Result.Add('location', POSSetup."Default Location Code");
         Result.Add('mustChangePassword', PortalUser."Must Change Password");
         Result.Add('passwordChangedAt', PortalUser."Password Changed At");

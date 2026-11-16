@@ -166,6 +166,29 @@ codeunit 50182 "POS Portal Access"
         exit(StatusActiveTxt);
     end;
 
+    /// <summary>
+    /// The staff portal role of an employee's portal user (Cashier when there is none).
+    /// </summary>
+    procedure RoleOf(EmployeeNo: Code[20]): Enum "POS Portal Role"
+    var
+        PortalUser: Record "POS Portal User";
+    begin
+        PortalUser.SetRange("Employee No.", EmployeeNo);
+        if PortalUser.FindFirst() then
+            exit(PortalUser.Role);
+        exit("POS Portal Role"::Cashier);
+    end;
+
+    procedure SetRole(EmployeeNo: Code[20]; NewRole: Enum "POS Portal Role")
+    var
+        PortalUser: Record "POS Portal User";
+    begin
+        CheckSupervisor();
+        GetByEmployee(EmployeeNo, PortalUser);
+        PortalUser.Validate(Role, NewRole);
+        PortalUser.Modify(true);
+    end;
+
     procedure HasPortalUser(EmployeeNo: Code[20]): Boolean
     var
         PortalUser: Record "POS Portal User";

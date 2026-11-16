@@ -15,6 +15,19 @@ pageextension 50183 "POS Employee Card Portal" extends "Employee Card"
                     Editable = false;
                     ToolTip = 'Whether this employee can sign in to the staff portal (shifts, sales and till). Ending their employment in BC stops access straight away.';
                 }
+                field("POS Portal Role"; PortalRole)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Staff Portal Role';
+                    Enabled = HasPortalUser;
+                    ToolTip = 'Cashiers see their own shifts and sales. Supervisors and Admins also see the read-only Admin section of the staff portal. Only supervisors can change it.';
+
+                    trigger OnValidate()
+                    begin
+                        PortalAccess.SetRole(Rec."No.", PortalRole);
+                        UpdateStatus();
+                    end;
+                }
             }
         }
     }
@@ -89,6 +102,7 @@ pageextension 50183 "POS Employee Card Portal" extends "Employee Card"
     var
         PortalAccess: Codeunit "POS Portal Access";
         PortalStatus: Text;
+        PortalRole: Enum "POS Portal Role";
         HasPortalUser: Boolean;
         PortalBlocked: Boolean;
 
@@ -102,5 +116,6 @@ pageextension 50183 "POS Employee Card Portal" extends "Employee Card"
         PortalStatus := PortalAccess.AccessStatus(Rec."No.");
         HasPortalUser := PortalAccess.HasPortalUser(Rec."No.");
         PortalBlocked := PortalAccess.IsBlocked(Rec."No.");
+        PortalRole := PortalAccess.RoleOf(Rec."No.");
     end;
 }

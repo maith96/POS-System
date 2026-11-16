@@ -109,6 +109,19 @@ table 50170 "POS Portal User"
             Editable = false;
             ToolTip = 'When the password was last set or changed. Sign-ins made before this are no longer valid.';
         }
+        field(110; Role; Enum "POS Portal Role")
+        {
+            Caption = 'Role';
+            ToolTip = 'Cashiers see their own shifts and sales in the staff portal. Supervisors and Admins also see the read-only Admin section with every cashier''s shifts and sales. Only supervisors can change it.';
+
+            trigger OnValidate()
+            var
+                ShiftMgt: Codeunit "POS Shift Management";
+            begin
+                if (Role <> xRec.Role) and not ShiftMgt.IsSupervisor() then
+                    Error(RoleSupervisorErr);
+            end;
+        }
     }
 
     keys
@@ -119,6 +132,7 @@ table 50170 "POS Portal User"
     }
 
     var
+        RoleSupervisorErr: Label 'Only supervisors can change a staff portal role.';
         EmployeeTakenErr: Label 'Employee %1 already has a staff portal user.', Comment = '%1 = employee no.';
 
     /// <summary>

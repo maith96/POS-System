@@ -28,12 +28,14 @@ page 50175 "POS Portal Sale API"
                 field(documentNo; Rec."Document No.") { Caption = 'Document No.'; }
                 field(postingDate; Rec."Posting Date") { Caption = 'Posting Date'; }
                 field(cashierCode; Rec."Cashier Code") { Caption = 'Cashier Code'; }
+                field(cashierName; CashierNameText) { Caption = 'Cashier Name'; }
                 field(shiftNo; Rec."Shift No.") { Caption = 'Shift No.'; }
                 field(status; Rec.Status) { Caption = 'Status'; } // Open, Posted, Cancelled (filterable)
                 field(totalAmount; Rec."Total Amount") { Caption = 'Total Amount'; }
                 field(amountPaid; Rec."Amount Paid") { Caption = 'Amount Paid'; }
                 field(changeAmount; Rec."Change Amount") { Caption = 'Change Amount'; }
                 field(paymentMethod; PaymentMethodText) { Caption = 'Payment Method'; }
+                field(paymentMethodOption; Rec."Payment Method") { Caption = 'Payment Method (filterable)'; } // Cash, MPESA, Card, Mixed
                 field(loyaltyPhoneNo; Rec."Loyalty Phone No.") { Caption = 'Loyalty Phone No.'; }
                 field(pointsEarned; Rec."Points Earned") { Caption = 'Points Earned'; }
                 field(redemptionAmount; Rec."Redemption Amount") { Caption = 'Redemption Amount'; }
@@ -64,10 +66,13 @@ page 50175 "POS Portal Sale API"
     begin
         Rec.CalcFields("Total Amount");
         PaymentMethodText := Format(Rec."Payment Method");
+        CashierNameText := Access.CashierName(Rec."Cashier Code");
         EtimsStatusText := Format(Rec."eTIMS Status");
     end;
 
     var
+        Access: Codeunit "POS Portal Access";
+        CashierNameText: Text[100];
         PaymentMethodText: Text[30];
         EtimsStatusText: Text[30];
 }

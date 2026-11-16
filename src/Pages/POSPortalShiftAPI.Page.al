@@ -27,7 +27,9 @@ page 50174 "POS Portal Shift API"
                 field(id; Rec.SystemId) { Caption = 'Id'; }
                 field(number; Rec."No.") { Caption = 'No.'; }
                 field(cashierCode; Rec."Cashier Code") { Caption = 'Cashier Code'; }
+                field(cashierName; CashierNameText) { Caption = 'Cashier Name'; }
                 field(status; StatusText) { Caption = 'Status'; }
+                field(statusOption; Rec.Status) { Caption = 'Status (filterable)'; } // Open, Closing, Pending Approval, Closed
                 field(openedAt; Rec."Opened At") { Caption = 'Opened At'; }
                 field(closedAt; Rec."Closed At") { Caption = 'Closed At'; }
                 field(openingFloat; Rec."Opening Float") { Caption = 'Opening Float'; }
@@ -51,6 +53,7 @@ page 50174 "POS Portal Shift API"
     begin
         Rec.CalcFields("Cash Sales", "MPESA Sales", "Card Sales", "Sales Count");
         StatusText := Format(Rec.Status);
+        CashierNameText := Access.CashierName(Rec."Cashier Code");
         // Expected Cash is fixed when the shift is closed; while it is open, work it out live.
         if Rec.Status = Rec.Status::Open then
             ExpectedCash := Rec."Opening Float" + Rec."Cash Sales"
@@ -59,6 +62,8 @@ page 50174 "POS Portal Shift API"
     end;
 
     var
+        Access: Codeunit "POS Portal Access";
+        CashierNameText: Text[100];
         StatusText: Text[30];
         ExpectedCash: Decimal;
 }
