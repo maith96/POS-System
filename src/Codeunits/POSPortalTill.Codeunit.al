@@ -1,7 +1,7 @@
 // The till for the staff portal. Published as the web service "POSPortalTill" (see StaffPortalWebServices.xml):
 //   POST /ODataV4/POSPortalTill_Command?company=...  { "staffCode", "documentNo", "command", "payload" }
 // The portal server calls BC as one service account and names the cashier it acts for (staffCode). The
-// service looks the cashier up in the POS Portal User table, makes that BC user the acting cashier, restores
+// service looks the cashier up in the POS Portal User table, makes its cashier code (employee no., or the legacy BC user name) the acting cashier, restores
 // the sale the till was working on (documentNo, only if it is that cashier's open, not held sale) and runs
 // the command in POS Till Controller, exactly as the BC till page does. The answer is the till state JSON
 // plus: ok, error, messages [{kind,text}], posted + changeDue (after posting) and picker (item or held-sale list).
@@ -14,13 +14,12 @@ codeunit 50180 "POS Portal Till"
         ActingCashier: Codeunit "POS Acting Cashier";
         TillController: Codeunit "POS Till Controller";
         UnknownStaffErr: Label 'Unknown staff code.';
-        BlockedErr: Label 'Your portal access is blocked. Ask your supervisor.';
-        NoUserErr: Label 'No BC user is linked to this staff code. Ask your supervisor.';
         NotAllowedErr: Label 'The command "%1" is not available in the staff portal till.', Comment = '%1 = command';
 
     procedure Command(staffCode: Text; documentNo: Text; command: Text; payload: Text): Text
     var
         PortalUser: Record "POS Portal User";
+        Access: Codeunit "POS Portal Access";
         State: JsonObject;
         Failed: Boolean;
         ErrorText: Text;
@@ -29,12 +28,10 @@ codeunit 50180 "POS Portal Till"
             exit(Denied(UnknownStaffErr));
         if not PortalUser.Get(UpperCase(staffCode)) then
             exit(Denied(UnknownStaffErr));
-        if PortalUser.Blocked then
-            exit(Denied(BlockedErr));
-        if PortalUser."User Name" = '' then
-            exit(Denied(NoUserErr));
+        if Access.AccessProblem(PortalUser) <> '' then
+            exit(Denied(Access.AccessProblem(PortalUser)));
 
-        ActingCashier.SetCashier(PortalUser."User Name");
+        ActingCashier.SetCashier(PortalUser.CashierCode());
         // The sale is only used if it is this cashier's open, not held sale (the controller checks that).
         TillSession.SetCommand(command, payload);
         TillSession.SetDocNo(CopyStr(documentNo, 1, 20));

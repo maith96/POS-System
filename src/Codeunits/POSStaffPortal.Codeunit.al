@@ -3,11 +3,11 @@
 //   POST /ODataV4/POSStaffPortal_SignIn?company=...        { "staffCode": "...", "password": "..." }
 //   POST /ODataV4/POSStaffPortal_ChangePassword?company=... { "staffCode": "...", "oldPassword": "...", "newPassword": "..." }
 //   POST /ODataV4/POSStaffPortal_GetProfile?company=...    { "staffCode": "..." }
-//   POST /ODataV4/POSStaffPortal_SetupUser?company=...     supervisors only, see SetupUser
+//   POST /ODataV4/POSStaffPortal_SetupEmployee?company=... supervisors only, see SetupEmployee
 // Each returns a JSON text. Wrong passwords never raise an error, so the failed-attempt count is saved.
 codeunit 50171 "POS Staff Portal"
 {
-    Permissions = tabledata "POS Portal User" = RM;
+    Permissions = tabledata "POS Portal User" = RMI;
 
     var
         MaxFailedAttempts: Integer;
@@ -15,21 +15,23 @@ codeunit 50171 "POS Staff Portal"
         MinPasswordLength: Integer;
         WrongSignInErr: Label 'Wrong staff code or password.';
         LockedErr: Label 'Too many wrong passwords. Try again after %1.', Comment = '%1 = time';
-        BlockedErr: Label 'Your portal access is blocked. Ask your supervisor.';
         NoPasswordErr: Label 'No password has been set for you yet. Ask your supervisor.';
         TooShortErr: Label 'The password must be at least %1 characters.', Comment = '%1 = length';
         SamePasswordErr: Label 'Choose a password different from the old one.';
         NotSupervisorErr: Label 'Only supervisors can set up staff portal users.';
+        NoEmployeeErr: Label 'Employee %1 does not exist.', Comment = '%1 = employee no.';
+        EmployeeNotActiveErr: Label 'Employee %1 is not active.', Comment = '%1 = employee no.';
 
     procedure SignIn(staffCode: Text; password: Text): Text
     var
         PortalUser: Record "POS Portal User";
+        Access: Codeunit "POS Portal Access";
     begin
         Init();
         if not FindUser(staffCode, PortalUser) then
             exit(Failure(WrongSignInErr));
-        if PortalUser.Blocked then
-            exit(Failure(BlockedErr));
+        if Access.AccessProblem(PortalUser) <> '' then
+            exit(Failure(Access.AccessProblem(PortalUser)));
         if PortalUser."Locked Until" > CurrentDateTime() then
             exit(Failure(StrSubstNo(LockedErr, Format(DT2Time(PortalUser."Locked Until"), 0, '<Hours24,2>:<Minutes,2>'))));
         if not PortalUser.HasPassword() then
@@ -76,12 +78,13 @@ codeunit 50171 "POS Staff Portal"
     procedure GetProfile(staffCode: Text): Text
     var
         PortalUser: Record "POS Portal User";
+        Access: Codeunit "POS Portal Access";
     begin
         Init();
         if not FindUser(staffCode, PortalUser) then
             exit(Failure(WrongSignInErr));
-        if PortalUser.Blocked then
-            exit(Failure(BlockedErr));
+        if Access.AccessProblem(PortalUser) <> '' then
+            exit(Failure(Access.AccessProblem(PortalUser)));
         exit(Profile(PortalUser));
     end;
 
@@ -94,29 +97,28 @@ codeunit 50171 "POS Staff Portal"
         StorePassword(PortalUser, NewPassword, MustChange);
     end;
 
-    // Web service call for supervisors (setup scripts): creates or updates a portal user and sets a
-    // temporary password. Refused unless the calling BC user is a supervisor, so the portal's own
-    // service account (POS PORTAL API only) can never use it.
-    procedure SetupUser(staffCode: Text; userName: Text; fullName: Text; temporaryPassword: Text): Text
+    // Web service call for supervisors (setup scripts): creates the portal user of an employee (staff code =
+    // employee no.) if missing and sets a temporary password. Refused unless the calling BC user is a supervisor,
+    // so the portal's own service account (POS PORTAL API only) can never use it.
+    procedure SetupEmployee(employeeNo: Text; temporaryPassword: Text): Text
     var
         PortalUser: Record "POS Portal User";
+        Employee: Record Employee;
+        Access: Codeunit "POS Portal Access";
         ShiftMgt: Codeunit "POS Shift Management";
     begin
         Init();
         if not ShiftMgt.IsSupervisor() then
             exit(Failure(NotSupervisorErr));
-        if (staffCode = '') or (StrLen(staffCode) > MaxStrLen(PortalUser."Staff Code")) then
-            exit(Failure(WrongSignInErr));
+        if (employeeNo = '') or (StrLen(employeeNo) > MaxStrLen(Employee."No.")) then
+            exit(Failure(StrSubstNo(NoEmployeeErr, employeeNo)));
+        if not Employee.Get(UpperCase(employeeNo)) then
+            exit(Failure(StrSubstNo(NoEmployeeErr, employeeNo)));
+        if not Access.EmployeeIsActive(Employee."No.") then
+            exit(Failure(StrSubstNo(EmployeeNotActiveErr, Employee."No.")));
         if StrLen(temporaryPassword) < MinPasswordLength then
             exit(Failure(StrSubstNo(TooShortErr, MinPasswordLength)));
-        if not PortalUser.Get(UpperCase(staffCode)) then begin
-            PortalUser.Init();
-            PortalUser."Staff Code" := CopyStr(UpperCase(staffCode), 1, MaxStrLen(PortalUser."Staff Code"));
-            PortalUser.Insert(true);
-        end;
-        PortalUser."User Name" := CopyStr(UpperCase(userName), 1, MaxStrLen(PortalUser."User Name"));
-        PortalUser."Full Name" := CopyStr(fullName, 1, MaxStrLen(PortalUser."Full Name"));
-        PortalUser.Modify(true);
+        Access.SetupForEmployee(Employee."No.", PortalUser);
         StorePassword(PortalUser, temporaryPassword, true);
         exit(Profile(PortalUser));
     end;
@@ -168,6 +170,8 @@ codeunit 50171 "POS Staff Portal"
         if POSSetup.Get() then;
         Result.Add('ok', true);
         Result.Add('staffCode', PortalUser."Staff Code");
+        Result.Add('cashierCode', PortalUser.CashierCode());
+        Result.Add('employeeNo', PortalUser."Employee No.");
         Result.Add('userName', PortalUser."User Name");
         Result.Add('fullName', PortalUser."Full Name");
         Result.Add('location', POSSetup."Default Location Code");

@@ -26,6 +26,7 @@ permissionset 50126 "POS CASHIER"
         page "POS Sales Subform" = X,
         page "POS Sale Totals FactBox" = X,
         page "POS Sales List" = X,
+        codeunit "POS Portal Access" = X,
         page "POS Activities" = X,
         page "POS Role Center" = X,
         tabledata "POS Loyalty Member" = RIM,
@@ -85,7 +86,8 @@ permissionset 50127 "POS SUPERVISOR"
         table "POS Portal User" = X,
         page "POS Portal Users" = X,
         page "POS Set Portal Password" = X,
-        codeunit "POS Staff Portal" = X;
+        codeunit "POS Staff Portal" = X,
+        codeunit "POS Portal Access" = X;
 }
 
 permissionset 50128 "POS ACCOUNTANT"
@@ -114,6 +116,7 @@ permissionset 50128 "POS ACCOUNTANT"
         page "POS Sales Subform" = X,
         page "POS Sale Totals FactBox" = X,
         page "POS Sales List" = X,
+        codeunit "POS Portal Access" = X,
         page "MPESA Callback Buffer List" = X,
         page "POS Accountant Activities" = X,
         page "POS Accountant Role Center" = X,
@@ -158,6 +161,7 @@ permissionset 50129 "POS CUSTOMER CARE"
         page "POS Sales Subform" = X,
         page "POS Sale Totals FactBox" = X,
         page "POS Sales List" = X,
+        codeunit "POS Portal Access" = X,
         page "MPESA Callback Buffer List" = X,
         page "POS Customer Care Activities" = X,
         page "POS Customer Care Role Center" = X,

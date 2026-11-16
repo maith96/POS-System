@@ -65,6 +65,7 @@ permissionset 50113 "POS SUPER"
         page "POS Portal Users" = X,
         page "POS Set Portal Password" = X,
         codeunit "POS Staff Portal" = X,
+        codeunit "POS Portal Access" = X,
         page "POS Portal Shift API" = X,
         page "POS Portal Sale API" = X,
         page "POS Portal Sale Line API" = X,

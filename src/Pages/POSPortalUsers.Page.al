@@ -14,7 +14,11 @@ page 50172 "POS Portal Users"
             repeater(Users)
             {
                 field("Staff Code"; Rec."Staff Code") { }
-                field("User Name"; Rec."User Name") { }
+                field("Employee No."; Rec."Employee No.") { }
+                field("User Name"; Rec."User Name")
+                {
+                    Caption = 'User Name (legacy)';
+                }
                 field("Full Name"; Rec."Full Name") { }
                 field(Blocked; Rec.Blocked) { }
                 field(PasswordSet; Rec.HasPassword())
@@ -44,7 +48,8 @@ page 50172 "POS Portal Users"
                 var
                     Dialog: Page "POS Set Portal Password";
                 begin
-                    Rec.TestField("User Name");
+                    if (Rec."Employee No." = '') and (Rec."User Name" = '') then
+                        Error(NoLinkErr);
                     Dialog.SetStaff(Rec."Staff Code", Rec."Full Name");
                     if Dialog.RunModal() = Action::OK then begin
                         StaffPortal.SetPassword(Rec, Dialog.GetPassword(), true);
@@ -75,5 +80,6 @@ page 50172 "POS Portal Users"
 
     var
         StaffPortal: Codeunit "POS Staff Portal";
+        NoLinkErr: Label 'Choose an Employee No. first.';
         PasswordSetMsg: Label 'Password set. Give it to %1; they will choose their own the first time they sign in.', Comment = '%1 = name';
 }

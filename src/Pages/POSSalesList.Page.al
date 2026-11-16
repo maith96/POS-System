@@ -17,6 +17,13 @@ page 50112 "POS Sales List"
                 field("Document No."; Rec."Document No.") { ApplicationArea = All; }
                 field("Posting Date"; Rec."Posting Date") { ApplicationArea = All; }
                 field("Cashier Code"; Rec."Cashier Code") { ApplicationArea = All; }
+                field(CashierName; CashierNameText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Cashier Name';
+                    Editable = false;
+                    ToolTip = 'The cashier''s name: the employee, or the BC user for older records.';
+                }
                 field("Shift No."; Rec."Shift No.") { ApplicationArea = All; }
                 field("Customer No."; Rec."Customer No.") { ApplicationArea = All; }
                 field("Location Code"; Rec."Location Code") { ApplicationArea = All; }
@@ -76,4 +83,14 @@ page 50112 "POS Sales List"
             }
         }
     }
+
+    var
+        CashierNameText: Text;
+
+    trigger OnAfterGetRecord()
+    var
+        Access: Codeunit "POS Portal Access";
+    begin
+        CashierNameText := Access.CashierName(Rec."Cashier Code");
+    end;
 }

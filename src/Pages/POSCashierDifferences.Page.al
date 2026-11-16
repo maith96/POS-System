@@ -49,6 +49,13 @@ page 50161 "POS Cashier Differences"
                     ApplicationArea = All;
                     ToolTip = 'The cashier.';
                 }
+                field(CashierName; CashierNameText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Cashier Name';
+                    Editable = false;
+                    ToolTip = 'The cashier''s name: the employee, or the BC user for older records.';
+                }
                 field("Shift Count"; Rec."Shift Count")
                 {
                     ApplicationArea = All;
@@ -166,6 +173,14 @@ page 50161 "POS Cashier Differences"
     var
         FromDate: Date;
         ToDate: Date;
+        CashierNameText: Text;
+
+    trigger OnAfterGetRecord()
+    var
+        Access: Codeunit "POS Portal Access";
+    begin
+        CashierNameText := Access.CashierName(Rec."Cashier Code");
+    end;
 
     trigger OnOpenPage()
     begin

@@ -1,5 +1,6 @@
 // A staff member who can sign in to the staff portal (web app outside BC).
-// The portal shows the shifts and sales whose Cashier Code equals "User Name".
+// A portal user is a BC Employee (no BC user or licence needed). The portal shows the shifts and sales
+// whose Cashier Code equals CashierCode(): the Employee No., or the legacy "User Name" if no employee is linked.
 // Passwords are stored only as a salted PBKDF2 hash; see codeunit "POS Staff Portal".
 table 50170 "POS Portal User"
 {
@@ -16,13 +17,34 @@ table 50170 "POS Portal User"
             NotBlank = true;
             ToolTip = 'The code the staff member types to sign in to the staff portal.';
         }
+        field(5; "Employee No."; Code[20])
+        {
+            Caption = 'Employee No.';
+            TableRelation = Employee;
+            ToolTip = 'The employee who works the till. The employee number is the cashier code on their shifts and sales, and ending their employment in BC stops their portal access.';
+
+            trigger OnValidate()
+            var
+                Employee: Record Employee;
+                Other: Record "POS Portal User";
+            begin
+                if "Employee No." = '' then
+                    exit;
+                Other.SetRange("Employee No.", "Employee No.");
+                Other.SetFilter("Staff Code", '<>%1', "Staff Code");
+                if not Other.IsEmpty() then
+                    Error(EmployeeTakenErr, "Employee No.");
+                Employee.Get("Employee No.");
+                "Full Name" := CopyStr(Employee.FullName(), 1, MaxStrLen("Full Name"));
+            end;
+        }
         field(10; "User Name"; Code[50])
         {
             Caption = 'User Name';
             TableRelation = User."User Name";
             ValidateTableRelation = false;
             DataClassification = EndUserIdentifiableInformation;
-            ToolTip = 'The BC user who works the till. The portal shows shifts and sales recorded under this user.';
+            ToolTip = 'Legacy link to a BC user. Only used as the cashier code when no Employee No. is set.';
 
             trigger OnValidate()
             var
@@ -93,7 +115,21 @@ table 50170 "POS Portal User"
     {
         key(PK; "Staff Code") { Clustered = true; }
         key(UserName; "User Name") { }
+        key(EmployeeNo; "Employee No.") { }
     }
+
+    var
+        EmployeeTakenErr: Label 'Employee %1 already has a staff portal user.', Comment = '%1 = employee no.';
+
+    /// <summary>
+    /// The cashier code recorded on this person's shifts and sales: the Employee No., else the legacy User Name.
+    /// </summary>
+    procedure CashierCode(): Code[50]
+    begin
+        if "Employee No." <> '' then
+            exit("Employee No.");
+        exit("User Name");
+    end;
 
     procedure HasPassword(): Boolean
     begin

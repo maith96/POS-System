@@ -13,6 +13,7 @@ permissionset 50178 "POS PORTAL API"
         tabledata "POS Payment Line" = R,
         table "POS Portal User" = X,
         codeunit "POS Staff Portal" = X,
+        codeunit "POS Portal Access" = X,
         page "POS Portal Shift API" = X,
         page "POS Portal Sale API" = X,
         page "POS Portal Sale Line API" = X,

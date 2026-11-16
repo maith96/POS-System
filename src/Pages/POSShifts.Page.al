@@ -17,6 +17,13 @@ page 50153 "POS Shifts"
             {
                 field("No."; Rec."No.") { ApplicationArea = All; }
                 field("Cashier Code"; Rec."Cashier Code") { ApplicationArea = All; }
+                field(CashierName; CashierNameText)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Cashier Name';
+                    Editable = false;
+                    ToolTip = 'The cashier''s name: the employee, or the BC user for older records.';
+                }
                 field("Opened At"; Rec."Opened At") { ApplicationArea = All; }
                 field(Status; Rec.Status)
                 {
@@ -175,6 +182,14 @@ page 50153 "POS Shifts"
 
     var
         ShowCashFigures: Boolean;
+        CashierNameText: Text;
+
+    trigger OnAfterGetRecord()
+    var
+        Access: Codeunit "POS Portal Access";
+    begin
+        CashierNameText := Access.CashierName(Rec."Cashier Code");
+    end;
 
     trigger OnOpenPage()
     var

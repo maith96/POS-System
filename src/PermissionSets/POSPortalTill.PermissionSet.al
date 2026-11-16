@@ -8,5 +8,6 @@ permissionset 50181 "POS PORTAL TILL"
     Permissions =
         tabledata "POS Portal User" = R,
         codeunit "POS Portal Till" = X,
-        codeunit "POS Acting Cashier" = X;
+        codeunit "POS Acting Cashier" = X,
+        codeunit "POS Portal Access" = X;
 }
