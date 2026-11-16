@@ -7,6 +7,7 @@ codeunit 50166 "POS Till Controller"
     // till (page POS Sales) uses too.
 
     var
+        ActingCashier: Codeunit "POS Acting Cashier";
         TillSession: Codeunit "POS Till Session";
         SaleMgt: Codeunit "POS Sale Management";
         PaymentMgt: Codeunit "POS Payment Management";
@@ -82,6 +83,10 @@ codeunit 50166 "POS Till Controller"
                 PostSale();
             'openShift':
                 ShiftMgt.OpenShiftWithDialog();
+            'openShiftWith':
+                ShiftMgt.OpenShift(GetDecimal(Payload, 'openingFloat'));
+            'closeShiftWith':
+                ShiftMgt.CloseOwnShift(GetDecimal(Payload, 'countedCash'), GetBoolean(Payload, 'confirmZero'));
             'closeShift':
                 ShiftMgt.CloseShiftWithDialog('');
             else
@@ -192,9 +197,9 @@ codeunit 50166 "POS Till Controller"
         else
             State.Add('status', 'New');
         State.Add('onHold', POSHeader."On Hold");
-        State.Add('shiftNo', ShiftMgt.GetOpenShift(CopyStr(UserId(), 1, MaxStrLen(POSHeader."Cashier Code"))));
+        State.Add('shiftNo', ShiftMgt.GetOpenShift(CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code"))));
         State.Add('requireShift', RequireShift);
-        State.Add('cashier', UserId());
+        State.Add('cashier', ActingCashier.GetCashier());
         State.Add('workDate', Format(WorkDate(), 0, '<Day,2>/<Month,2>/<Year4>'));
         State.Add('lines', Lines);
         State.Add('lineCount', LineCount);
@@ -286,13 +291,15 @@ codeunit 50166 "POS Till Controller"
         if DocNo = '' then
             exit(false);
         if not POSHeader.Get(DocNo) then begin
+            Clear(POSHeader);
             TillSession.SetDocNo('');
             exit(false);
         end;
         if (POSHeader.Status <> POSHeader.Status::Open) or POSHeader."On Hold" or
-           (POSHeader."Cashier Code" <> CopyStr(UserId(), 1, MaxStrLen(POSHeader."Cashier Code")))
+           (POSHeader."Cashier Code" <> CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code")))
         then begin
             TillSession.SetDocNo('');
+            Clear(POSHeader); // never leak another cashier's sale into the state
             exit(false);
         end;
         exit(true);
@@ -307,7 +314,7 @@ codeunit 50166 "POS Till Controller"
             exit;
         POSHeader.SetRange(Status, POSHeader.Status::Open);
         POSHeader.SetRange("On Hold", false);
-        POSHeader.SetRange("Cashier Code", CopyStr(UserId(), 1, MaxStrLen(POSHeader."Cashier Code")));
+        POSHeader.SetRange("Cashier Code", CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code")));
         POSHeader.Ascending(false);
         if POSHeader.FindSet() then
             repeat
@@ -358,7 +365,7 @@ codeunit 50166 "POS Till Controller"
             exit;
         if not POSSetup."Require Open Shift" then
             exit;
-        Cashier := CopyStr(UserId(), 1, MaxStrLen(Cashier));
+        Cashier := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Cashier));
         if ShiftMgt.GetOpenShift(Cashier) = '' then
             Error(NoShiftErr);
     end;
@@ -719,5 +726,18 @@ codeunit 50166 "POS Till Controller"
         if Token.AsValue().IsNull() then
             exit(0);
         exit(Token.AsValue().AsInteger());
+    end;
+
+    local procedure GetBoolean(Obj: JsonObject; KeyName: Text): Boolean
+    var
+        Token: JsonToken;
+    begin
+        if not Obj.Get(KeyName, Token) then
+            exit(false);
+        if not Token.IsValue() then
+            exit(false);
+        if Token.AsValue().IsNull() then
+            exit(false);
+        exit(Token.AsValue().AsBoolean());
     end;
 }

@@ -27,6 +27,7 @@ codeunit 50111 "POS Post Sale"
         ETIMSMgt: Codeunit "POS eTIMS Management";
         ETIMSText: Text;
         RecallFirstErr: Label 'Recall the sale first.';
+        ActingCashier: Codeunit "POS Acting Cashier";
     begin
         if POSHeader.Status <> POSHeader.Status::Open then
             Error('Only Open POS documents can be posted.');
@@ -133,7 +134,7 @@ codeunit 50111 "POS Post Sale"
         end;
 
         // After eTIMS, so the receipt carries the eTIMS data and QR code
-        if POSSetup."Print Receipt After Posting" then
+        if POSSetup."Print Receipt After Posting" and not ActingCashier.IsActive() then
             PrintReceipt(POSHeader);
 
         if not HideMessages then

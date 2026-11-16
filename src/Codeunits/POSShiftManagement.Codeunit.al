@@ -1,6 +1,7 @@
 codeunit 50152 "POS Shift Management"
 {
     var
+        ActingCashier: Codeunit "POS Acting Cashier";
         ShiftAlreadyOpenErr: Label 'Cashier %1 already has shift %2 (%3). Close it before opening a new one.', Comment = '%1 = cashier, %2 = shift no., %3 = status';
         NoShiftNosErr: Label 'Set the Shift Nos. number series in POS Setup first.';
         NegativeFloatErr: Label 'The opening float cannot be negative.';
@@ -26,6 +27,7 @@ codeunit 50152 "POS Shift Management"
         HandedOverMsg: Label 'Shift %1 is handed over. A supervisor must count the drawer before it is final.', Comment = '%1 = shift no.';
         CashierClosedMsg: Label 'Shift %1 closed.', Comment = '%1 = shift no.';
         CashierPendingMsg: Label 'Shift %1 is closed and needs supervisor approval.', Comment = '%1 = shift no.';
+        ZeroCountConfirmErr: Label 'Counted cash is 0.00. Did you count the cash? Enter the count, or confirm that the drawer is empty.';
         ZeroCountNoAmountQst: Label 'Counted cash is 0.00.\Did you count the cash? Choose No to go back and enter the count.';
         SupervisorCountedClosedMsg: Label 'Shift %1 counted and closed.\Expected cash: %2\Cashier count: %3\Supervisor count: %4\Difference: %5\Count mismatch: %6', Comment = '%1 = shift no., %2 = expected, %3 = cashier count, %4 = supervisor count, %5 = difference, %6 = mismatch';
         SupervisorCountedPendingMsg: Label 'Shift %1 counted; the difference needs approval.\Expected cash: %2\Cashier count: %3\Supervisor count: %4\Difference: %5\Count mismatch: %6', Comment = '%1 = shift no., %2 = expected, %3 = cashier count, %4 = supervisor count, %5 = difference, %6 = mismatch';
@@ -47,7 +49,7 @@ codeunit 50152 "POS Shift Management"
         if POSSetup."Shift Nos." = '' then
             Error(NoShiftNosErr);
 
-        Cashier := CopyStr(UserId(), 1, MaxStrLen(Cashier));
+        Cashier := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Cashier));
         Shift.SetRange("Cashier Code", Cashier);
         Shift.SetFilter(Status, '%1|%2', Shift.Status::Open, Shift.Status::Closing);
         if Shift.FindFirst() then
@@ -63,7 +65,7 @@ codeunit 50152 "POS Shift Management"
         Shift."Location Code" := POSSetup."Default Location Code";
         Shift.Insert(true);
 
-        Message(ShiftOpenedMsg, Shift."No.", FormatAmt(OpeningFloat));
+        ActingCashier.ShowMessage(StrSubstNo(ShiftOpenedMsg, Shift."No.", FormatAmt(OpeningFloat)));
         exit(Shift."No.");
     end;
 
@@ -87,7 +89,7 @@ codeunit 50152 "POS Shift Management"
         CloseDialog: Page "POS Close Shift Dialog";
     begin
         if ShiftNo = '' then
-            ShiftNo := GetOpenShift(CopyStr(UserId(), 1, MaxStrLen(Shift."Cashier Code")));
+            ShiftNo := GetOpenShift(CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Shift."Cashier Code")));
         if ShiftNo = '' then
             Error(NoOpenShiftToCloseErr);
         Shift.Get(ShiftNo);
@@ -102,6 +104,25 @@ codeunit 50152 "POS Shift Management"
                 exit;
         until ConfirmCount(CloseDialog.GetCountedCash(), Shift."Opening Float" + Shift."Cash Sales");
         CloseShift(Shift, CloseDialog.GetCountedCash());
+    end;
+
+    /// <summary>
+    /// Closes the acting cashier's open shift with the counted cash, without any dialog (staff portal till).
+    /// A zero count while cash is expected must be confirmed (ConfirmZero), as the dialog version asks.
+    /// </summary>
+    procedure CloseOwnShift(CountedCash: Decimal; ConfirmZero: Boolean)
+    var
+        Shift: Record "POS Shift";
+        ShiftNo: Code[20];
+    begin
+        ShiftNo := GetOpenShift(ActingCashier.GetCashier());
+        if ShiftNo = '' then
+            Error(NoOpenShiftToCloseErr);
+        Shift.Get(ShiftNo);
+        Shift.CalcFields("Cash Sales");
+        if (CountedCash = 0) and not ConfirmZero and (Shift."Opening Float" + Shift."Cash Sales" > 0) then
+            Error(ZeroCountConfirmErr);
+        CloseShift(Shift, CountedCash);
     end;
 
     /// <summary>
@@ -156,9 +177,9 @@ codeunit 50152 "POS Shift Management"
         Shift.Modify(true);
 
         if Shift.Status = Shift.Status::Closed then
-            Message(ShiftClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference))
+            ActingCashier.ShowMessage(StrSubstNo(ShiftClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference)))
         else
-            Message(ShiftPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference));
+            ActingCashier.ShowMessage(StrSubstNo(ShiftPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference)));
     end;
 
     // A zero count while cash is expected is almost always a blank field: ask before accepting it.
@@ -212,7 +233,7 @@ codeunit 50152 "POS Shift Management"
             // Two-person count: hand the drawer over; the difference is worked out by the supervisor count.
             Shift.Status := Shift.Status::Closing;
             Shift.Modify(true);
-            Message(HandedOverMsg, Shift."No.");
+            ActingCashier.ShowMessage(StrSubstNo(HandedOverMsg, Shift."No."));
             exit;
         end;
 
@@ -226,16 +247,16 @@ codeunit 50152 "POS Shift Management"
         if not IsSupervisor() then begin
             // Cashiers never see the expected cash or the difference.
             if Shift.Status = Shift.Status::Closed then
-                Message(CashierClosedMsg, Shift."No.")
+                ActingCashier.ShowMessage(StrSubstNo(CashierClosedMsg, Shift."No."))
             else
-                Message(CashierPendingMsg, Shift."No.");
+                ActingCashier.ShowMessage(StrSubstNo(CashierPendingMsg, Shift."No."));
             exit;
         end;
 
         if Shift.Status = Shift.Status::Closed then
-            Message(ShiftClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference))
+            ActingCashier.ShowMessage(StrSubstNo(ShiftClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference)))
         else
-            Message(ShiftPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference));
+            ActingCashier.ShowMessage(StrSubstNo(ShiftPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference)));
     end;
 
     /// <summary>
@@ -349,7 +370,7 @@ codeunit 50152 "POS Shift Management"
             exit;
 
         if POSHeader."Shift No." = '' then begin
-            OpenShiftNo := GetOpenShift(CopyStr(UserId(), 1, MaxStrLen(POSHeader."Cashier Code")));
+            OpenShiftNo := GetOpenShift(CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code")));
             if OpenShiftNo = '' then
                 Error(NoOpenShiftErr, POSHeader."Document No.");
             POSHeader."Shift No." := OpenShiftNo;

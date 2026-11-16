@@ -3,6 +3,7 @@ codeunit 50165 "POS Sale Management"
     // Sale logic shared by the form till (page POS Sales) and the touch till (POS Till Controller).
 
     var
+        ActingCashier: Codeunit "POS Acting Cashier";
         InvalidQtyErr: Label 'The quantity "%1" before the * is not valid. Use a number above zero, e.g. 3*5012345678900.', Comment = '%1 = quantity text';
         NoItemAfterQtyErr: Label 'Enter a barcode or item name after the quantity.';
         NotFoundErr: Label 'Item with barcode %1 not found.', Comment = '%1 = scanned text';
@@ -28,7 +29,7 @@ codeunit 50165 "POS Sale Management"
             Error(SetupMissingErr);
 
         POSHeader."Posting Date" := WorkDate();
-        POSHeader."Cashier Code" := CopyStr(UserId, 1, MaxStrLen(POSHeader."Cashier Code"));
+        POSHeader."Cashier Code" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code"));
         POSHeader."Location Code" := POSSetup."Default Location Code";
         POSHeader."Customer No." := POSSetup."Default Customer No.";
         POSHeader.Status := POSHeader.Status::Open;
@@ -271,7 +272,7 @@ codeunit 50165 "POS Sale Management"
         HeldSale.Reset();
         HeldSale.SetRange(Status, HeldSale.Status::Open);
         HeldSale.SetRange("On Hold", true);
-        HeldSale.SetRange("Cashier Code", CopyStr(UserId(), 1, MaxStrLen(HeldSale."Cashier Code")));
+        HeldSale.SetRange("Cashier Code", CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(HeldSale."Cashier Code")));
         if HeldSale.IsEmpty() then
             Error(NoHeldSalesErr);
     end;
@@ -290,7 +291,7 @@ codeunit 50165 "POS Sale Management"
     begin
         POSHeader.Get(DocumentNo);
         if (POSHeader.Status <> POSHeader.Status::Open) or not POSHeader."On Hold" or
-           (POSHeader."Cashier Code" <> CopyStr(UserId(), 1, MaxStrLen(POSHeader."Cashier Code")))
+           (POSHeader."Cashier Code" <> CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code")))
         then
             Error(NotHeldErr, DocumentNo);
         ReleaseHold(POSHeader);

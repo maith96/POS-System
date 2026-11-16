@@ -8,5 +8,11 @@
       <ObjectID>50171</ObjectID>
       <Published>true</Published>
     </TenantWebService>
+    <TenantWebService>
+      <ObjectType>CodeUnit</ObjectType>
+      <ServiceName>POSPortalTill</ServiceName>
+      <ObjectID>50180</ObjectID>
+      <Published>true</Published>
+    </TenantWebService>
   </TenantWebServiceCollection>
 </ExportedData>

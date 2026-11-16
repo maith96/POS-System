@@ -42,6 +42,7 @@ permissionset 50126 "POS CASHIER"
         codeunit "POS Sale Management" = X,
         codeunit "POS Till Controller" = X,
         codeunit "POS Till Session" = X,
+        codeunit "POS Acting Cashier" = X,
         page "POS Touch Till" = X,
         tabledata "Item Category" = R,
         tabledata "POS Shift" = RIM,

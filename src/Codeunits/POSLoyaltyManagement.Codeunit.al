@@ -4,6 +4,7 @@ codeunit 50134 "POS Loyalty Management"
     Permissions = tabledata "POS Loyalty Entry" = ri;
 
     var
+        ActingCashier: Codeunit "POS Acting Cashier";
         LoyaltyDisabledErr: Label 'Loyalty is not enabled in POS Setup.';
         MemberBlockedErr: Label 'Loyalty member %1 is blocked.', Comment = '%1 = phone number';
         RegisterQst: Label 'Phone number %1 is not a loyalty member yet. Register it now?', Comment = '%1 = phone number';
@@ -208,7 +209,7 @@ codeunit 50134 "POS Loyalty Management"
         Entry.Amount := Amount;
         Entry."POS Document No." := POSHeader."Document No.";
         Entry."Posted Invoice No." := PostedInvoiceNo;
-        Entry."User ID" := CopyStr(UserId(), 1, MaxStrLen(Entry."User ID"));
+        Entry."User ID" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Entry."User ID"));
         Entry.Insert(true);
     end;
 

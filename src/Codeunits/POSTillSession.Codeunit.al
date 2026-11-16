@@ -15,6 +15,7 @@ codeunit 50168 "POS Till Session"
         ErrorText: Text;
         ChangeAmount: Decimal;
         ChangeSet: Boolean;
+        Messages: JsonArray;
 
     /// <summary>
     /// Stores the next command and clears the results of the previous one.
@@ -24,6 +25,7 @@ codeunit 50168 "POS Till Session"
         CommandName := NewName;
         CommandPayload := NewPayload;
         Clear(PickerItems);
+        Clear(Messages);
         InfoText := '';
         ErrorText := '';
         ChangeAmount := 0;
@@ -109,5 +111,22 @@ codeunit 50168 "POS Till Session"
     procedure GetChange(): Decimal
     begin
         exit(ChangeAmount);
+    end;
+
+    /// <summary>
+    /// Collects a message for the staff portal till (Kind = info or error), which has no BC message box.
+    /// </summary>
+    procedure AddMessage(Kind: Text; MessageText: Text)
+    var
+        Entry: JsonObject;
+    begin
+        Entry.Add('kind', Kind);
+        Entry.Add('text', MessageText);
+        Messages.Add(Entry);
+    end;
+
+    procedure GetMessages(): JsonArray
+    begin
+        exit(Messages);
     end;
 }

@@ -2,6 +2,7 @@ codeunit 50106 "POS MPESA Management"
 {
     procedure InitiateSTKPush(var POSHeader: Record "POS Sales Header"; PhoneNumber: Text[20]): Boolean
     var
+        ActingCashier: Codeunit "POS Acting Cashier";
         POSSetup: Record "POS Setup";
         AccessToken: Text;
         RequestBody: Text;
@@ -72,7 +73,7 @@ codeunit 50106 "POS MPESA Management"
                 POSHeader."MPESA Requested Amount" := Amount;
                 POSHeader."MPESA Phone No." := CopyStr(PhoneNumber, 1, MaxStrLen(POSHeader."MPESA Phone No."));
                 POSHeader.Modify(true);
-                Message('STK Push sent to %1.\\CheckoutRequestID: %2\\Ask customer to enter MPESA PIN.', PhoneNumber, CheckoutRequestID);
+                ActingCashier.ShowMessage(StrSubstNo('STK Push sent to %1.\\CheckoutRequestID: %2\\Ask customer to enter MPESA PIN.', PhoneNumber, CheckoutRequestID));
                 exit(true);
             end;
         end;
@@ -87,6 +88,7 @@ codeunit 50106 "POS MPESA Management"
     /// </summary>
     procedure QuerySTKStatus(var POSHeader: Record "POS Sales Header"): Integer
     var
+        ActingCashier: Codeunit "POS Acting Cashier";
         POSSetup: Record "POS Setup";
         AccessToken: Text;
         RequestBody: Text;
@@ -161,18 +163,18 @@ codeunit 50106 "POS MPESA Management"
                     PaymentMgt.RecordMPESAPayment(POSHeader, POSHeader."MPESA Transaction ID", '',
                         POSHeader."MPESA Requested Amount", POSHeader."MPESA Phone No.");
 
-                    Message('Payment confirmed by Safaricom.\\Result: %1\\You can now post the sale.', ResultDesc);
+                    ActingCashier.ShowMessage(StrSubstNo('Payment confirmed by Safaricom.\\Result: %1\\You can now post the sale.', ResultDesc));
                 end;
             1032:
-                Message('Customer cancelled the payment.\\Result: %1', ResultDesc);
+                ActingCashier.ShowMessage(StrSubstNo('Customer cancelled the payment.\\Result: %1', ResultDesc));
             1037:
-                Message('Payment timed out (customer did not respond).\\Result: %1', ResultDesc);
+                ActingCashier.ShowMessage(StrSubstNo('Payment timed out (customer did not respond).\\Result: %1', ResultDesc));
             1:
-                Message('Insufficient M-Pesa balance.\\Result: %1', ResultDesc);
+                ActingCashier.ShowMessage(StrSubstNo('Insufficient M-Pesa balance.\\Result: %1', ResultDesc));
             2001:
-                Message('Wrong PIN entered.\\Result: %1', ResultDesc);
+                ActingCashier.ShowMessage(StrSubstNo('Wrong PIN entered.\\Result: %1', ResultDesc));
             else
-                Message('Payment not completed.\\ResultCode: %1\\%2', ResultCode, ResultDesc);
+                ActingCashier.ShowMessage(StrSubstNo('Payment not completed.\\ResultCode: %1\\%2', ResultCode, ResultDesc));
         end;
 
         exit(ResultCode);
