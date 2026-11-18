@@ -8,6 +8,7 @@ permissionset 50178 "POS PORTAL API"
         tabledata "POS Setup" = R,
         tabledata "POS Portal User" = RM,
         tabledata "POS Shift" = R,
+        tabledata "POS Shift Cash Count" = R,
         tabledata "POS Sales Header" = R,
         tabledata "POS Sales Line" = R,
         tabledata "POS Payment Line" = R,

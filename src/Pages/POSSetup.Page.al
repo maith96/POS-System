@@ -25,6 +25,7 @@ page 50103 "POS Setup"
                 field("Shift Nos."; Rec."Shift Nos.") { ApplicationArea = All; }
                 field("Max. Cash Difference"; Rec."Max. Cash Difference") { ApplicationArea = All; }
                 field("Require Supervisor Count"; Rec."Require Supervisor Count") { ApplicationArea = All; }
+                field("Count Coins by Type"; Rec."Count Coins by Type") { ApplicationArea = All; }
                 field("Allow Self-Approval"; Rec."Allow Self-Approval") { ApplicationArea = All; }
                 field("Cash Difference Account"; Rec."Cash Difference Account") { ApplicationArea = All; }
             }

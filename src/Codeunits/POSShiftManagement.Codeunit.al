@@ -74,10 +74,11 @@ codeunit 50152 "POS Shift Management"
     /// </summary>
     procedure OpenShiftWithDialog()
     var
-        OpenDialog: Page "POS Open Shift Dialog";
+        OpenDialog: Page "POS Close Shift Dialog";
     begin
+        OpenDialog.SetOpenMode();
         if OpenDialog.RunModal() = Action::OK then
-            OpenShift(OpenDialog.GetOpeningFloat());
+            OpenDialog.SaveCount(OpenShift(OpenDialog.GetCountedCash()), 1); // 1 = Opening
     end;
 
     /// <summary>
@@ -104,6 +105,7 @@ codeunit 50152 "POS Shift Management"
                 exit;
         until ConfirmCount(CloseDialog.GetCountedCash(), Shift."Opening Float" + Shift."Cash Sales");
         CloseShift(Shift, CloseDialog.GetCountedCash());
+        CloseDialog.SaveCount(Shift."No.", 0); // 0 = Closing
     end;
 
     /// <summary>
@@ -152,6 +154,7 @@ codeunit 50152 "POS Shift Management"
                 exit;
         until ConfirmCount(CloseDialog.GetCountedCash(), Shift."Expected Cash");
         RecountShift(Shift, CloseDialog.GetCountedCash());
+        CloseDialog.SaveCount(Shift."No.", 2); // 2 = Supervisor
     end;
 
     procedure RecountShift(var Shift: Record "POS Shift"; CountedCash: Decimal)
@@ -285,6 +288,7 @@ codeunit 50152 "POS Shift Management"
                 exit;
         until ConfirmCount(CountDialog.GetCountedCash(), Shift."Expected Cash");
         SupervisorCount(Shift, CountDialog.GetCountedCash());
+        CountDialog.SaveCount(Shift."No.", 2); // 2 = Supervisor
     end;
 
     /// <summary>

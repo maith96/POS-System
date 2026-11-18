@@ -241,6 +241,11 @@ table 50100 "POS Setup"
             Caption = 'Require Supervisor Count';
             ToolTip = 'When on, closing a shift only hands the drawer over: a supervisor must count it before the shift is final. The cashier never sees the expected cash or the difference.';
         }
+        field(560; "Count Coins by Type"; Boolean)
+        {
+            Caption = 'Count Coins by Type';
+            ToolTip = 'When on, closing a shift on the portal till asks how many 40, 20, 10, 5 and 1 shilling coins there are. When off, coins are entered as one amount.';
+        }
         // Receipt printing
         field(600; "Print Receipt After Posting"; Boolean)
         {

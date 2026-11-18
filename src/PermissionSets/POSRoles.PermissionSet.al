@@ -47,13 +47,13 @@ permissionset 50126 "POS CASHIER"
         page "POS Touch Till" = X,
         tabledata "Item Category" = R,
         tabledata "POS Shift" = RIM,
+        tabledata "POS Shift Cash Count" = RIM,
         tabledata "Access Control" = R, // hides cash figures from non-supervisors
         codeunit "POS Shift Management" = X,
         codeunit "POS Open Shift" = X,
         codeunit "POS Close Shift" = X,
         page "POS Shifts" = X,
         page "POS Shift Card" = X,
-        page "POS Open Shift Dialog" = X,
         page "POS Close Shift Dialog" = X,
         report "POS Receipt" = X;
 }
@@ -80,6 +80,7 @@ permissionset 50127 "POS SUPERVISOR"
         page "POS Supervisor Role Center" = X,
         page "POS Cashier Differences" = X,
         tabledata "POS Shift" = RIMD,
+        tabledata "POS Shift Cash Count" = RIMD,
         tabledata "Access Control" = R, // approval check: is the user a supervisor
         codeunit "POS MPESA Callback Handler" = X,
         tabledata "POS Portal User" = RIMD,
@@ -128,6 +129,7 @@ permissionset 50128 "POS ACCOUNTANT"
         codeunit "POS MPESA Callback Handler" = X,
         tabledata "POS eTIMS Tax Mapping" = R,
         tabledata "POS Shift" = R,
+        tabledata "POS Shift Cash Count" = R,
         tabledata "Access Control" = R,
         page "POS Cashier Differences" = X,
         codeunit "POS Shift Management" = X,

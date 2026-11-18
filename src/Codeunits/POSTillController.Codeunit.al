@@ -11,6 +11,7 @@ codeunit 50166 "POS Till Controller"
         TillSession: Codeunit "POS Till Session";
         SaleMgt: Codeunit "POS Sale Management";
         PaymentMgt: Codeunit "POS Payment Management";
+        BadDenominationErr: Label '%1 is not a Kenyan note or coin. Notes are 1000, 500, 200, 100 and 50; coins are 40, 20, 10, 5 and 1.', Comment = '%1 = denomination';
         BadPayloadErr: Label 'The till sent an unreadable command.';
         UnknownCommandErr: Label 'Unknown till command "%1".', Comment = '%1 = command name';
         NoShiftErr: Label 'No open shift. Tap Open shift first.';
@@ -84,9 +85,9 @@ codeunit 50166 "POS Till Controller"
             'openShift':
                 ShiftMgt.OpenShiftWithDialog();
             'openShiftWith':
-                ShiftMgt.OpenShift(GetDecimal(Payload, 'openingFloat'));
+                OpenShiftWith(Payload);
             'closeShiftWith':
-                ShiftMgt.CloseOwnShift(GetDecimal(Payload, 'countedCash'), GetBoolean(Payload, 'confirmZero'));
+                CloseShiftWith(Payload);
             'closeShift':
                 ShiftMgt.CloseShiftWithDialog('');
             else
@@ -115,6 +116,7 @@ codeunit 50166 "POS Till Controller"
         HasSale: Boolean;
         LoyaltyEnabled: Boolean;
         RequireShift: Boolean;
+        CountCoins: Boolean;
         MpesaPending: Boolean;
         SelectedFound: Boolean;
         Total: Decimal;
@@ -136,6 +138,7 @@ codeunit 50166 "POS Till Controller"
         if POSSetup.Get() then begin
             LoyaltyEnabled := POSSetup."Enable Loyalty";
             RequireShift := POSSetup."Require Open Shift";
+            CountCoins := POSSetup."Count Coins by Type";
             PointValue := POSSetup."Loyalty Point Value";
         end;
 
@@ -199,6 +202,7 @@ codeunit 50166 "POS Till Controller"
         State.Add('onHold', POSHeader."On Hold");
         State.Add('shiftNo', ShiftMgt.GetOpenShift(CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code"))));
         State.Add('requireShift', RequireShift);
+        State.Add('countCoins', CountCoins);
         State.Add('cashier', ActingCashier.GetCashier());
         State.Add('workDate', Format(WorkDate(), 0, '<Day,2>/<Month,2>/<Year4>'));
         State.Add('lines', Lines);
@@ -688,6 +692,82 @@ codeunit 50166 "POS Till Controller"
     end;
 
     // ---------------------------------------------------------------- JSON helpers
+
+    // With a "count" array (the portal's note-by-note count) the opening float or counted cash is the count's
+    // total, worked out here so it always matches the saved breakdown. Without one, the plain amount (the BC till).
+    local procedure OpenShiftWith(Payload: JsonObject)
+    var
+        TempCount: Record "POS Shift Cash Count" temporary;
+        ShiftMgt: Codeunit "POS Shift Management";
+        Total: Decimal;
+    begin
+        if not ReadCount(Payload, TempCount, Total) then begin
+            ShiftMgt.OpenShift(GetDecimal(Payload, 'openingFloat'));
+            exit;
+        end;
+        SaveCount(TempCount, ShiftMgt.OpenShift(Total), TempCount."Count Type"::Opening);
+    end;
+
+    local procedure CloseShiftWith(Payload: JsonObject)
+    var
+        TempCount: Record "POS Shift Cash Count" temporary;
+        ShiftMgt: Codeunit "POS Shift Management";
+        ShiftNo: Code[20];
+        Total: Decimal;
+    begin
+        if not ReadCount(Payload, TempCount, Total) then begin
+            ShiftMgt.CloseOwnShift(GetDecimal(Payload, 'countedCash'), GetBoolean(Payload, 'confirmZero'));
+            exit;
+        end;
+        ShiftNo := ShiftMgt.GetOpenShift(CopyStr(ActingCashier.GetCashier(), 1, 50));
+        ShiftMgt.CloseOwnShift(Total, GetBoolean(Payload, 'confirmZero')); // errors when there is no open shift
+        SaveCount(TempCount, ShiftNo, TempCount."Count Type"::Closing);
+    end;
+
+    local procedure ReadCount(Payload: JsonObject; var TempCount: Record "POS Shift Cash Count" temporary; var Total: Decimal): Boolean
+    var
+        Lines: JsonToken;
+        Line: JsonToken;
+        Entry: JsonObject;
+    begin
+        if not Payload.Get('count', Lines) then
+            exit(false);
+        if not Lines.IsArray() then
+            Error(BadPayloadErr);
+        foreach Line in Lines.AsArray() do begin
+            if not Line.IsObject() then
+                Error(BadPayloadErr);
+            Entry := Line.AsObject();
+            TempCount.Init();
+            TempCount.Denomination := GetDecimal(Entry, 'denomination');
+            if not (TempCount.Denomination in [0, 1, 5, 10, 20, 40, 50, 100, 200, 500, 1000]) then
+                Error(BadDenominationErr, TempCount.Denomination);
+            if TempCount.Denomination = 0 then
+                TempCount.Validate(Amount, Round(GetDecimal(Entry, 'amount'), 0.01)) // loose coins, one amount
+            else begin
+                TempCount.Validate(Quantity, GetInteger(Entry, 'quantity'));
+                TempCount.Amount := TempCount.Quantity * TempCount.Denomination;
+            end;
+            Total += TempCount.Amount;
+            if TempCount.Amount <> 0 then
+                TempCount.Insert(); // a repeated denomination fails here, before anything is changed
+        end;
+        exit(true);
+    end;
+
+    local procedure SaveCount(var TempCount: Record "POS Shift Cash Count" temporary; ShiftNo: Code[20]; CountType: Option)
+    var
+        CashCount: Record "POS Shift Cash Count";
+    begin
+        if TempCount.FindSet() then
+            repeat
+                CashCount := TempCount;
+                CashCount."Shift No." := ShiftNo;
+                CashCount."Count Type" := CountType;
+                CashCount."Counted By" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(CashCount."Counted By"));
+                CashCount.Insert();
+            until TempCount.Next() = 0;
+    end;
 
     local procedure GetText(Obj: JsonObject; KeyName: Text): Text
     var
