@@ -110,6 +110,12 @@ page 50154 "POS Shift Card"
                 field("Approved At"; Rec."Approved At") { ApplicationArea = All; }
                 field("Difference Posted"; Rec."Difference Posted") { ApplicationArea = All; }
             }
+            part(CashCount; "POS Shift Cash Count Part")
+            {
+                ApplicationArea = All;
+                Caption = 'Cash Count';
+                Visible = ShowCashFigures;
+            }
         }
     }
 
@@ -218,6 +224,12 @@ page 50154 "POS Shift Card"
         Access: Codeunit "POS Portal Access";
     begin
         CashierNameText := Access.CashierName(Rec."Cashier Code");
+    end;
+
+    trigger OnAfterGetCurrRecord()
+    begin
+        if ShowCashFigures then
+            CurrPage.CashCount.Page.SetShift(Rec."No.");
     end;
 
     trigger OnOpenPage()

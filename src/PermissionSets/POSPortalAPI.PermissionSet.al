@@ -18,5 +18,6 @@ permissionset 50178 "POS PORTAL API"
         page "POS Portal Shift API" = X,
         page "POS Portal Sale API" = X,
         page "POS Portal Sale Line API" = X,
-        page "POS Portal Payment API" = X;
+        page "POS Portal Payment API" = X,
+        page "POS Portal Cash Count API" = X;
 }

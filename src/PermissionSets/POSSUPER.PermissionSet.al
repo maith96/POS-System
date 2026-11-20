@@ -56,6 +56,7 @@ permissionset 50113 "POS SUPER"
         page "POS Cashier Differences" = X,
         page "POS Shifts" = X,
         page "POS Shift Card" = X,
+        page "POS Shift Cash Count Part" = X,
         page "POS Close Shift Dialog" = X,
         report "POS Receipt" = X,
         codeunit "POS Run Trial Balance Excel" = X,

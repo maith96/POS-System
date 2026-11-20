@@ -54,6 +54,7 @@ permissionset 50126 "POS CASHIER"
         codeunit "POS Close Shift" = X,
         page "POS Shifts" = X,
         page "POS Shift Card" = X,
+        page "POS Shift Cash Count Part" = X,
         page "POS Close Shift Dialog" = X,
         report "POS Receipt" = X;
 }
@@ -135,6 +136,7 @@ permissionset 50128 "POS ACCOUNTANT"
         codeunit "POS Shift Management" = X,
         page "POS Shifts" = X,
         page "POS Shift Card" = X,
+        page "POS Shift Cash Count Part" = X,
         codeunit "POS Sale Management" = X,
         codeunit "POS Run Trial Balance Excel" = X,
         codeunit "POS Run Aged Rec. Excel" = X;
