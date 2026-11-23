@@ -60,6 +60,7 @@ permissionset 50113 "POS SUPER"
         page "POS Cash Transfer" = X,
         page "POS Received Cash Transfers" = X,
         codeunit "POS Cash Accounts" = X,
+        codeunit "POS Post Shift Sales" = X,
         page "POS Shifts" = X,
         page "POS Shift Card" = X,
         page "POS Shift Cash Count Part" = X,

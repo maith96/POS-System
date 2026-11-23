@@ -91,6 +91,14 @@ page 50154 "POS Shift Card"
                 Caption = 'Sales';
 
                 field("Sales Count"; Rec."Sales Count") { ApplicationArea = All; }
+                field("Sales Posted"; Rec."Sales Posted") { ApplicationArea = All; }
+                field("Sales Posted At"; Rec."Sales Posted At") { ApplicationArea = All; }
+                field("Sales Posting Error"; Rec."Sales Posting Error")
+                {
+                    ApplicationArea = All;
+                    Style = Unfavorable;
+                    StyleExpr = Rec."Sales Posting Error" <> '';
+                }
                 field("MPESA Sales"; Rec."MPESA Sales")
                 {
                     ApplicationArea = All;
@@ -194,6 +202,28 @@ page 50154 "POS Shift Card"
                     CurrPage.Update(false);
                 end;
             }
+            action(PostShiftSales)
+            {
+                Caption = 'Post Shift Sales';
+                ApplicationArea = All;
+                Image = PostBatch;
+                Promoted = true;
+                PromotedCategory = Process;
+                Visible = ShowCashFigures;
+                Enabled = CanPostSales;
+                ToolTip = 'Post the sales of this closed shift (stock, sales, VAT, loyalty redemption and money). Use it when posting at shift close failed; the reason is in Sales Posting Error.';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                    ErrorText: Text;
+                begin
+                    ErrorText := ShiftMgt.PostShiftSales(Rec."No.");
+                    CurrPage.Update(false);
+                    if ErrorText <> '' then
+                        Message(ErrorText);
+                end;
+            }
             action(Approve)
             {
                 Caption = 'Approve';
@@ -217,6 +247,7 @@ page 50154 "POS Shift Card"
 
     var
         ShowCashFigures: Boolean;
+        CanPostSales: Boolean;
         CashierNameText: Text;
 
     trigger OnAfterGetRecord()
@@ -228,6 +259,7 @@ page 50154 "POS Shift Card"
 
     trigger OnAfterGetCurrRecord()
     begin
+        SetCanPostSales();
         if ShowCashFigures then
             CurrPage.CashCount.Page.SetShift(Rec."No.");
     end;
@@ -237,5 +269,13 @@ page 50154 "POS Shift Card"
         ShiftMgt: Codeunit "POS Shift Management";
     begin
         ShowCashFigures := ShiftMgt.CanSeeCashFigures();
+    end;
+
+    local procedure SetCanPostSales()
+    var
+        POSSetup: Record "POS Setup";
+    begin
+        POSSetup.Get();
+        CanPostSales := POSSetup."Post Sales at Shift Close" and (Rec.Status = Rec.Status::Closed) and not Rec."Sales Posted";
     end;
 }

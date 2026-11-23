@@ -159,6 +159,28 @@ page 50153 "POS Shifts"
                     CurrPage.Update(false);
                 end;
             }
+            action(PostShiftSales)
+            {
+                Caption = 'Post Shift Sales';
+                ApplicationArea = All;
+                Image = PostBatch;
+                Promoted = true;
+                PromotedCategory = Process;
+                Visible = ShowCashFigures;
+                Enabled = CanPostSales;
+                ToolTip = 'Post the sales of this closed shift (stock, sales, VAT, loyalty redemption and money). Use it when posting at shift close failed; the reason is in Sales Posting Error.';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                    ErrorText: Text;
+                begin
+                    ErrorText := ShiftMgt.PostShiftSales(Rec."No.");
+                    CurrPage.Update(false);
+                    if ErrorText <> '' then
+                        Message(ErrorText);
+                end;
+            }
             action(Approve)
             {
                 Caption = 'Approve';
@@ -182,6 +204,7 @@ page 50153 "POS Shifts"
 
     var
         ShowCashFigures: Boolean;
+        CanPostSales: Boolean;
         CashierNameText: Text;
 
     trigger OnAfterGetRecord()
@@ -191,10 +214,23 @@ page 50153 "POS Shifts"
         CashierNameText := Access.CashierName(Rec."Cashier Code");
     end;
 
+    trigger OnAfterGetCurrRecord()
+    begin
+        SetCanPostSales();
+    end;
+
     trigger OnOpenPage()
     var
         ShiftMgt: Codeunit "POS Shift Management";
     begin
         ShowCashFigures := ShiftMgt.CanSeeCashFigures();
+    end;
+
+    local procedure SetCanPostSales()
+    var
+        POSSetup: Record "POS Setup";
+    begin
+        POSSetup.Get();
+        CanPostSales := POSSetup."Post Sales at Shift Close" and (Rec.Status = Rec.Status::Closed) and not Rec."Sales Posted";
     end;
 }

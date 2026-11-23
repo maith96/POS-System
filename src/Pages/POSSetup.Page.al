@@ -29,6 +29,7 @@ page 50103 "POS Setup"
                 field("Allow Self-Approval"; Rec."Allow Self-Approval") { ApplicationArea = All; }
                 field("Cash Difference Account"; Rec."Cash Difference Account") { ApplicationArea = All; }
                 field("Post Cash to Cashier Accounts"; Rec."Post Cash to Cashier Accounts") { ApplicationArea = All; }
+                field("Post Sales at Shift Close"; Rec."Post Sales at Shift Close") { ApplicationArea = All; }
                 field("Cash Transfer Nos."; Rec."Cash Transfer Nos.") { ApplicationArea = All; }
             }
             group(Integrations)

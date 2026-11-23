@@ -251,6 +251,11 @@ table 50100 "POS Setup"
             Caption = 'Post Cash to Cashier Accounts';
             ToolTip = 'When on, cash sales and shift cash differences are posted to the cashier''s own Cashier bank account instead of the Cash Bal. Account. Every cashier needs a Cashier bank account (Bank Account card, POS group) first, or their sales cannot be posted.';
         }
+        field(590; "Post Sales at Shift Close"; Boolean)
+        {
+            Caption = 'Post Sales at Shift Close';
+            ToolTip = 'When on, a POS sale does not create a Sales Invoice or customer payments. The sales of a shift are posted together (stock, sales, VAT, loyalty redemption and money) when the shift is closed. When off, every sale posts its own invoice as before.';
+        }
         field(580; "Cash Transfer Nos."; Code[20])
         {
             Caption = 'Cash Transfer Nos.';

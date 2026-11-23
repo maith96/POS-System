@@ -180,6 +180,9 @@ codeunit 50152 "POS Shift Management"
         Shift.Modify(true);
 
         if Shift.Status = Shift.Status::Closed then
+            PostShiftSales(Shift."No.");
+
+        if Shift.Status = Shift.Status::Closed then
             ActingCashier.ShowMessage(StrSubstNo(ShiftClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference)))
         else
             ActingCashier.ShowMessage(StrSubstNo(ShiftPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Counted Cash"), FormatAmt(Shift.Difference)));
@@ -246,6 +249,9 @@ codeunit 50152 "POS Shift Management"
         else
             Shift.Status := Shift.Status::"Pending Approval";
         Shift.Modify(true);
+
+        if Shift.Status = Shift.Status::Closed then
+            PostShiftSales(Shift."No.");
 
         if not IsSupervisor() then begin
             // Cashiers never see the expected cash or the difference.
@@ -322,6 +328,9 @@ codeunit 50152 "POS Shift Management"
         Shift.Modify(true);
 
         if Shift.Status = Shift.Status::Closed then
+            PostShiftSales(Shift."No.");
+
+        if Shift.Status = Shift.Status::Closed then
             Message(SupervisorCountedClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Cashier Count"), FormatAmt(Shift."Supervisor Count"), FormatAmt(Shift.Difference), FormatAmt(Shift."Count Mismatch"))
         else
             Message(SupervisorCountedPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Cashier Count"), FormatAmt(Shift."Supervisor Count"), FormatAmt(Shift.Difference), FormatAmt(Shift."Count Mismatch"));
@@ -357,6 +366,35 @@ codeunit 50152 "POS Shift Management"
             Shift."Closed Date" := WorkDate(); // shifts closed before 1.3 had none
         Shift.Status := Shift.Status::Closed;
         Shift.Modify(true);
+        PostShiftSales(Shift."No.");
+    end;
+
+    /// <summary>
+    /// Post Sales at Shift Close: posts the sales of a Closed shift. Does nothing when the switch is off.
+    /// A failure never undoes the close: the close is committed first, and the error is kept on the shift
+    /// (Sales Posting Error) for a retry with Post Shift Sales. Returns the error text, blank when posted.
+    /// </summary>
+    procedure PostShiftSales(ShiftNo: Code[20]): Text
+    var
+        POSSetup: Record "POS Setup";
+        Shift: Record "POS Shift";
+        ErrorText: Text;
+    begin
+        POSSetup.Get();
+        if not POSSetup."Post Sales at Shift Close" then
+            exit('');
+        Commit(); // Codeunit.Run with a return value is not allowed inside an open write transaction
+        Shift.Get(ShiftNo);
+        if Shift."Sales Posted" then
+            exit('');
+        if Codeunit.Run(Codeunit::"POS Post Shift Sales", Shift) then
+            exit('');
+        ErrorText := GetLastErrorText();
+        Shift.Get(ShiftNo);
+        Shift."Sales Posting Error" := CopyStr(ErrorText, 1, MaxStrLen(Shift."Sales Posting Error"));
+        Shift.Modify();
+        Commit();
+        exit(ErrorText);
     end;
 
     /// <summary>

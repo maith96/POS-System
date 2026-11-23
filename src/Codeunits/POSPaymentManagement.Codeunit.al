@@ -222,10 +222,29 @@ codeunit 50137 "POS Payment Management"
     /// </summary>
     procedure PostPayments(var POSHeader: Record "POS Sales Header"; CustomerNo: Code[20]; PostingDate: Date; PostedInvoiceNo: Code[20])
     var
-        PaymentLine: Record "POS Payment Line";
         PostedByMethod: array[3] of Decimal;
         RefByMethod: array[3] of Code[50];
         LinesByMethod: array[3] of Integer;
+        i: Integer;
+    begin
+        MarkPaymentsPosted(POSHeader, PostingDate, PostedByMethod, RefByMethod, LinesByMethod);
+
+        for i := 1 to 3 do
+            if PostedByMethod[i] > 0 then begin
+                if LinesByMethod[i] > 1 then
+                    RefByMethod[i] := ''; // several references: keep them on the payment lines only
+                PostCustomerPayment(POSHeader, i - 1, PostedByMethod[i], RefByMethod[i], CustomerNo, PostingDate, PostedInvoiceNo);
+            end;
+    end;
+
+    /// <summary>
+    /// Marks the payment lines as posted with the amount that counts as received (change is deducted from
+    /// cash) and returns the posted amount, last reference and line count per method (1 = Cash, 2 = MPESA,
+    /// 3 = Card). Posts nothing: PostPayments and Post Sales at Shift Close both build on it.
+    /// </summary>
+    procedure MarkPaymentsPosted(var POSHeader: Record "POS Sales Header"; PostingDate: Date; var PostedByMethod: array[3] of Decimal; var RefByMethod: array[3] of Code[50]; var LinesByMethod: array[3] of Integer)
+    var
+        PaymentLine: Record "POS Payment Line";
         ChangeLeft: Decimal;
         PostedAmount: Decimal;
         i: Integer;
@@ -258,13 +277,6 @@ codeunit 50137 "POS Payment Management"
                 PaymentLine."Shift No." := POSHeader."Shift No.";
                 PaymentLine.Modify(false); // skip the open-document check in OnModify
             until PaymentLine.Next() = 0;
-
-        for i := 1 to 3 do
-            if PostedByMethod[i] > 0 then begin
-                if LinesByMethod[i] > 1 then
-                    RefByMethod[i] := ''; // several references: keep them on the payment lines only
-                PostCustomerPayment(POSHeader, i - 1, PostedByMethod[i], RefByMethod[i], CustomerNo, PostingDate, PostedInvoiceNo);
-            end;
     end;
 
     local procedure PostCustomerPayment(POSHeader: Record "POS Sales Header"; PaymentMethod: Option Cash,MPESA,Card; Amount: Decimal; Reference: Code[50]; CustomerNo: Code[20]; PostingDate: Date; PostedInvoiceNo: Code[20])

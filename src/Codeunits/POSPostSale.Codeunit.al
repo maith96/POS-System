@@ -13,17 +13,16 @@ codeunit 50111 "POS Post Sale"
     procedure PostPOSDocument(var POSHeader: Record "POS Sales Header")
     var
         POSLine: Record "POS Sales Line";
-        SalesHeader: Record "Sales Header";
-        SalesLine: Record "Sales Line";
-        SalesInvHeader: Record "Sales Invoice Header";
         POSSetup: Record "POS Setup";
-        SalesPost: Codeunit "Sales-Post";
         LoyaltyMgt: Codeunit "POS Loyalty Management";
         PaymentMgt: Codeunit "POS Payment Management";
         ShiftMgt: Codeunit "POS Shift Management";
-        LineNo: Integer;
         PostedInvoiceNo: Code[20];
         PointsEarned: Integer;
+        PostedByMethod: array[3] of Decimal;
+        RefByMethod: array[3] of Code[50];
+        LinesByMethod: array[3] of Integer;
+        NoShiftErr: Label 'Sale %1 has no shift. Open a shift first: with Post Sales at Shift Close on, a sale without a shift is never posted.', Comment = '%1 = POS document no.';
         ETIMSMgt: Codeunit "POS eTIMS Management";
         ETIMSText: Text;
         RecallFirstErr: Label 'Recall the sale first.';
@@ -48,6 +47,63 @@ codeunit 50111 "POS Post Sale"
         LoyaltyMgt.CheckBeforePosting(POSHeader);
         PaymentMgt.CheckPayments(POSHeader); // fully paid, change only from cash, accounts set up
 
+        if POSSetup."Post Sales at Shift Close" then begin
+            // No invoice and no customer payments: the shift's sales are posted together when it closes.
+            // The payment lines are still marked posted, so the shift cash totals and change stay as they are.
+            if POSHeader."Shift No." = '' then
+                Error(NoShiftErr, POSHeader."Document No.");
+            PaymentMgt.MarkPaymentsPosted(POSHeader, POSHeader."Posting Date", PostedByMethod, RefByMethod, LinesByMethod);
+        end else
+            PostedInvoiceNo := PostInvoice(POSHeader, POSSetup);
+
+        // Loyalty ledger: points redeemed and earned on this sale
+        PointsEarned := LoyaltyMgt.PostLoyaltyEntries(POSHeader, PostedInvoiceNo);
+
+        // Update POS Header (re-read: payment lines updated it during posting)
+        POSHeader.Get(POSHeader."Document No.");
+        POSHeader."Points Earned" := PointsEarned;
+        POSHeader.Status := POSHeader.Status::Posted;
+        POSHeader."Posted Invoice No." := PostedInvoiceNo;
+        POSHeader.Modify(true);
+
+        // Everything above is now saved. Commit so a failure while talking to KRA can never undo the sale.
+        Commit();
+
+        if POSSetup."Enable eTIMS" then begin
+            if ETIMSMgt.TrySend(POSHeader) then
+                ETIMSText := StrSubstNo('eTIMS: sent, receipt no. %1.', POSHeader."eTIMS Invoice No.")
+            else
+                ETIMSText := StrSubstNo('eTIMS: FAILED - %1 Use Send to eTIMS to retry.', POSHeader."eTIMS Error");
+        end else begin
+            POSHeader."eTIMS Status" := POSHeader."eTIMS Status"::"Not Required";
+            POSHeader.Modify();
+            Commit();
+        end;
+
+        // After eTIMS, so the receipt carries the eTIMS data and QR code
+        if POSSetup."Print Receipt After Posting" and not ActingCashier.IsActive() then
+            PrintReceipt(POSHeader);
+
+        if not HideMessages then
+            ShowPostedMessage(POSHeader, PostedInvoiceNo, PointsEarned, ETIMSText);
+    end;
+
+    /// <summary>
+    /// Creates and posts the Sales Invoice with the customer payments (the original posting path).
+    /// Returns the posted invoice no.
+    /// </summary>
+    local procedure PostInvoice(var POSHeader: Record "POS Sales Header"; POSSetup: Record "POS Setup") PostedInvoiceNo: Code[20]
+    var
+        POSLine: Record "POS Sales Line";
+        SalesHeader: Record "Sales Header";
+        SalesLine: Record "Sales Line";
+        SalesInvHeader: Record "Sales Invoice Header";
+        SalesPost: Codeunit "Sales-Post";
+        LoyaltyMgt: Codeunit "POS Loyalty Management";
+        PaymentMgt: Codeunit "POS Payment Management";
+        LineNo: Integer;
+    begin
+        POSLine.SetRange("Document No.", POSHeader."Document No.");
         // Create Sales Invoice
         SalesHeader.Init();
         SalesHeader."Document Type" := SalesHeader."Document Type"::Invoice;
@@ -109,36 +165,6 @@ codeunit 50111 "POS Post Sale"
         // Payments: one customer payment per method, applied to the invoice
         PaymentMgt.PostPayments(POSHeader, SalesHeader."Bill-to Customer No.", SalesHeader."Posting Date", PostedInvoiceNo);
 
-        // Loyalty ledger: points redeemed and earned on this sale
-        PointsEarned := LoyaltyMgt.PostLoyaltyEntries(POSHeader, PostedInvoiceNo);
-
-        // Update POS Header (re-read: payment lines updated it during posting)
-        POSHeader.Get(POSHeader."Document No.");
-        POSHeader."Points Earned" := PointsEarned;
-        POSHeader.Status := POSHeader.Status::Posted;
-        POSHeader."Posted Invoice No." := PostedInvoiceNo;
-        POSHeader.Modify(true);
-
-        // Everything above is now saved. Commit so a failure while talking to KRA can never undo the sale.
-        Commit();
-
-        if POSSetup."Enable eTIMS" then begin
-            if ETIMSMgt.TrySend(POSHeader) then
-                ETIMSText := StrSubstNo('eTIMS: sent, receipt no. %1.', POSHeader."eTIMS Invoice No.")
-            else
-                ETIMSText := StrSubstNo('eTIMS: FAILED - %1 Use Send to eTIMS to retry.', POSHeader."eTIMS Error");
-        end else begin
-            POSHeader."eTIMS Status" := POSHeader."eTIMS Status"::"Not Required";
-            POSHeader.Modify();
-            Commit();
-        end;
-
-        // After eTIMS, so the receipt carries the eTIMS data and QR code
-        if POSSetup."Print Receipt After Posting" and not ActingCashier.IsActive() then
-            PrintReceipt(POSHeader);
-
-        if not HideMessages then
-            ShowPostedMessage(POSHeader, PostedInvoiceNo, PointsEarned, ETIMSText);
     end;
 
     /// <summary>
@@ -165,21 +191,26 @@ codeunit 50111 "POS Post Sale"
     local procedure ShowPostedMessage(POSHeader: Record "POS Sales Header"; PostedInvoiceNo: Code[20]; PointsEarned: Integer; ETIMSText: Text)
     var
         LoyaltyMgt: Codeunit "POS Loyalty Management";
+        InvoiceText: Text;
+        PostedAtCloseTxt: Label 'posted when the shift is closed';
     begin
+        InvoiceText := PostedInvoiceNo;
+        if InvoiceText = '' then
+            InvoiceText := PostedAtCloseTxt;
         if POSHeader."Loyalty Phone No." <> '' then begin
             if ETIMSText <> '' then
                 Message('POS Sale %1 posted successfully.\\Sales Invoice: %2\\Loyalty %3: %4 points earned, %5 redeemed. New balance: %6 points.\\%7',
-                    POSHeader."Document No.", PostedInvoiceNo, POSHeader."Loyalty Phone No.", PointsEarned,
+                    POSHeader."Document No.", InvoiceText, POSHeader."Loyalty Phone No.", PointsEarned,
                     POSHeader."Points to Redeem", LoyaltyMgt.GetPointsBalance(POSHeader."Loyalty Phone No."), ETIMSText)
             else
                 Message('POS Sale %1 posted successfully.\\Sales Invoice: %2\\Loyalty %3: %4 points earned, %5 redeemed. New balance: %6 points.',
-                    POSHeader."Document No.", PostedInvoiceNo, POSHeader."Loyalty Phone No.", PointsEarned,
+                    POSHeader."Document No.", InvoiceText, POSHeader."Loyalty Phone No.", PointsEarned,
                     POSHeader."Points to Redeem", LoyaltyMgt.GetPointsBalance(POSHeader."Loyalty Phone No."));
             exit;
         end;
 
         if ETIMSText <> '' then
-            Message('POS Sale %1 posted successfully.\\Sales Invoice: %2\\%3', POSHeader."Document No.", PostedInvoiceNo, ETIMSText)
+            Message('POS Sale %1 posted successfully.\\Sales Invoice: %2\\%3', POSHeader."Document No.", InvoiceText, ETIMSText)
         else
             Message('POS Sale %1 posted successfully.\\Sales Invoice: %2', POSHeader."Document No.", PostedInvoiceNo);
     end;

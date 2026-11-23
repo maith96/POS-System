@@ -156,6 +156,23 @@ table 50151 "POS Shift"
             Editable = false;
             ToolTip = 'Date the shift was handed over or closed.';
         }
+        field(230; "Sales Posted"; Boolean)
+        {
+            Caption = 'Sales Posted';
+            Editable = false;
+            ToolTip = 'Whether the sales of this shift have been posted to the ledgers (Post Sales at Shift Close).';
+        }
+        field(240; "Sales Posted At"; DateTime)
+        {
+            Caption = 'Sales Posted At';
+            Editable = false;
+        }
+        field(250; "Sales Posting Error"; Text[250])
+        {
+            Caption = 'Sales Posting Error';
+            Editable = false;
+            ToolTip = 'Why posting the sales of this shift failed. The shift stays closed; fix the cause and use Post Shift Sales.';
+        }
     }
 
     keys
