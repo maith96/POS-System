@@ -390,9 +390,19 @@ codeunit 50152 "POS Shift Management"
     var
         GenJnlLine: Record "Gen. Journal Line";
         GenJnlPostLine: Codeunit "Gen. Jnl.-Post Line";
+        CashAccounts: Codeunit "POS Cash Accounts";
+        CashAccType: Enum "Payment Balance Account Type";
+        CashAccNo: Code[20];
     begin
-        if POSSetup."Cash Bal. Account No." = '' then
-            Error(NoCashAccountErr);
+        if POSSetup."Post Cash to Cashier Accounts" then begin
+            CashAccType := CashAccType::"Bank Account";
+            CashAccNo := CashAccounts.CashierAccount(Shift."Cashier Code");
+        end else begin
+            if POSSetup."Cash Bal. Account No." = '' then
+                Error(NoCashAccountErr);
+            CashAccType := POSSetup."Cash Bal. Account Type";
+            CashAccNo := POSSetup."Cash Bal. Account No.";
+        end;
 
         // Difference < 0 (cash short): debit the difference account, credit cash. Difference > 0 (over): the reverse.
         GenJnlLine.Init();
@@ -402,11 +412,11 @@ codeunit 50152 "POS Shift Management"
         GenJnlLine.Validate("Account Type", GenJnlLine."Account Type"::"G/L Account");
         GenJnlLine.Validate("Account No.", POSSetup."Cash Difference Account");
         GenJnlLine.Description := CopyStr(StrSubstNo(DifferenceDescTxt, Shift."No."), 1, MaxStrLen(GenJnlLine.Description));
-        if POSSetup."Cash Bal. Account Type" = POSSetup."Cash Bal. Account Type"::"Bank Account" then
+        if CashAccType = CashAccType::"Bank Account" then
             GenJnlLine.Validate("Bal. Account Type", GenJnlLine."Bal. Account Type"::"Bank Account")
         else
             GenJnlLine.Validate("Bal. Account Type", GenJnlLine."Bal. Account Type"::"G/L Account");
-        GenJnlLine.Validate("Bal. Account No.", POSSetup."Cash Bal. Account No.");
+        GenJnlLine.Validate("Bal. Account No.", CashAccNo);
         GenJnlLine.Validate(Amount, -Shift.Difference);
         GenJnlPostLine.RunWithCheck(GenJnlLine);
     end;

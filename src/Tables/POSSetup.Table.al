@@ -246,6 +246,17 @@ table 50100 "POS Setup"
             Caption = 'Count Coins by Type';
             ToolTip = 'When on, closing a shift on the portal till asks how many 40, 20, 10, 5 and 1 shilling coins there are. When off, coins are entered as one amount.';
         }
+        field(570; "Post Cash to Cashier Accounts"; Boolean)
+        {
+            Caption = 'Post Cash to Cashier Accounts';
+            ToolTip = 'When on, cash sales and shift cash differences are posted to the cashier''s own Cashier bank account instead of the Cash Bal. Account. Every cashier needs a Cashier bank account (Bank Account card, POS group) first, or their sales cannot be posted.';
+        }
+        field(580; "Cash Transfer Nos."; Code[20])
+        {
+            Caption = 'Cash Transfer Nos.';
+            ToolTip = 'Number series used for POS cash transfer numbers.';
+            TableRelation = "No. Series";
+        }
         // Receipt printing
         field(600; "Print Receipt After Posting"; Boolean)
         {

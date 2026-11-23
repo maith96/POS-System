@@ -72,6 +72,20 @@ page 50121 "POS Accountant Role Center"
                 RunObject = page "POS Shifts";
                 ToolTip = 'Cashier shifts: opening float, cash sales, counted cash and differences.';
             }
+            action(CashTransfers)
+            {
+                Caption = 'Cash Transfers';
+                ApplicationArea = All;
+                RunObject = page "POS Cash Transfers";
+                ToolTip = 'Cash moving between cashier, treasury and bank accounts: open and sent transfers.';
+            }
+            action(ReceivedCashTransfers)
+            {
+                Caption = 'Received Cash Transfers';
+                ApplicationArea = All;
+                RunObject = page "POS Received Cash Transfers";
+                ToolTip = 'Cash transfers that have been received and posted.';
+            }
             action(CashierDifferences)
             {
                 Caption = 'Cashier Differences';

@@ -28,6 +28,8 @@ page 50103 "POS Setup"
                 field("Count Coins by Type"; Rec."Count Coins by Type") { ApplicationArea = All; }
                 field("Allow Self-Approval"; Rec."Allow Self-Approval") { ApplicationArea = All; }
                 field("Cash Difference Account"; Rec."Cash Difference Account") { ApplicationArea = All; }
+                field("Post Cash to Cashier Accounts"; Rec."Post Cash to Cashier Accounts") { ApplicationArea = All; }
+                field("Cash Transfer Nos."; Rec."Cash Transfer Nos.") { ApplicationArea = All; }
             }
             group(Integrations)
             {

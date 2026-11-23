@@ -177,6 +177,7 @@ codeunit 50137 "POS Payment Management"
         PaymentLine: Record "POS Payment Line";
         Due: Decimal;
         Total: Decimal;
+        CashAccounts: Codeunit "POS Cash Accounts";
         CashTotal: Decimal;
         Change: Decimal;
     begin
@@ -202,7 +203,10 @@ codeunit 50137 "POS Payment Management"
         PaymentLine.SetFilter(Amount, '<>0');
         PaymentLine.SetRange("Payment Method", PaymentLine."Payment Method"::Cash);
         if not PaymentLine.IsEmpty() then
-            POSSetup.TestField("Cash Bal. Account No.");
+            if POSSetup."Post Cash to Cashier Accounts" then
+                CashAccounts.CashierAccount(POSHeader."Cashier Code") // fails here, before anything is posted
+            else
+                POSSetup.TestField("Cash Bal. Account No.");
         PaymentLine.SetRange("Payment Method", PaymentLine."Payment Method"::MPESA);
         if not PaymentLine.IsEmpty() then
             POSSetup.TestField("MPESA Bal. Account No.");
@@ -268,13 +272,17 @@ codeunit 50137 "POS Payment Management"
         POSSetup: Record "POS Setup";
         GenJnlLine: Record "Gen. Journal Line";
         GenJnlPostLine: Codeunit "Gen. Jnl.-Post Line";
+        CashAccounts: Codeunit "POS Cash Accounts";
         BalAccType: Enum "Payment Balance Account Type";
         BalAccNo: Code[20];
     begin
         POSSetup.Get();
         case PaymentMethod of
             PaymentMethod::Cash:
-                begin
+                if POSSetup."Post Cash to Cashier Accounts" then begin
+                    BalAccType := BalAccType::"Bank Account";
+                    BalAccNo := CashAccounts.CashierAccount(POSHeader."Cashier Code");
+                end else begin
                     BalAccType := POSSetup."Cash Bal. Account Type";
                     BalAccNo := POSSetup."Cash Bal. Account No.";
                 end;
