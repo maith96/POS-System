@@ -31,6 +31,16 @@ page 50156 "POS Close Shift Dialog"
                 Caption = 'Opening Float';
                 InstructionalText = 'Count the cash already in the drawer: how many of each note and coin. Leave it all empty if there is none.';
                 Visible = OpenMode;
+
+                field(AccountBalanceCtrl; AccountBalance)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Your cash account holds';
+                    AutoFormatType = 1;
+                    Editable = false;
+                    Visible = ShowAccountBalance;
+                    ToolTip = 'The cash treasury has given you. Your count must equal it to open the shift.';
+                }
             }
             group(Columns)
             {
@@ -82,6 +92,8 @@ page 50156 "POS Close Shift Dialog"
         Total: Decimal;
         CountCoins: Boolean;
         OpenMode: Boolean;
+        ShowAccountBalance: Boolean;
+        AccountBalance: Decimal;
         SupervisorMode: Boolean;
         TotalCaption: Text;
         SupervisorCaptionTxt: Label 'Supervisor Count';
@@ -110,8 +122,15 @@ page 50156 "POS Close Shift Dialog"
     end;
 
     procedure SetOpenMode()
+    var
+        POSSetup: Record "POS Setup";
+        ShiftMgt: Codeunit "POS Shift Management";
     begin
         OpenMode := true;
+        if POSSetup.Get() then
+            ShowAccountBalance := POSSetup."Post Cash to Cashier Accounts";
+        if ShowAccountBalance then
+            AccountBalance := ShiftMgt.CashierAccountBalance();
     end;
 
     procedure SetShift(NewShiftNo: Code[20])

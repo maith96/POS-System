@@ -31,6 +31,9 @@ codeunit 50152 "POS Shift Management"
         ZeroCountNoAmountQst: Label 'Counted cash is 0.00.\Did you count the cash? Choose No to go back and enter the count.';
         SupervisorCountedClosedMsg: Label 'Shift %1 counted and closed.\Expected cash: %2\Cashier count: %3\Supervisor count: %4\Difference: %5\Count mismatch: %6', Comment = '%1 = shift no., %2 = expected, %3 = cashier count, %4 = supervisor count, %5 = difference, %6 = mismatch';
         SupervisorCountedPendingMsg: Label 'Shift %1 counted; the difference needs approval.\Expected cash: %2\Cashier count: %3\Supervisor count: %4\Difference: %5\Count mismatch: %6', Comment = '%1 = shift no., %2 = expected, %3 = cashier count, %4 = supervisor count, %5 = difference, %6 = mismatch';
+        NoDeletePermissionErr: Label 'Only a supervisor (permission set POS SUPERVISOR or POS SUPER) can delete a shift.';
+        DeleteShiftQst: Label 'Delete shift %1? Do this only for a shift opened by mistake.', Comment = '%1 = shift no.';
+        FloatMismatchErr: Label 'You counted %1, but your cash account %2 holds %3. The opening float must equal what treasury gave you. If a cash transfer to you is waiting, receive it first; otherwise ask your supervisor.', Comment = '%1 = counted float, %2 = bank account no., %3 = account balance';
         OwnRecountErr: Label 'You cannot recount your own shift. Ask another supervisor, or turn on Allow Self-Approval in POS Setup.';
 
     // Shifts opened before cashier codes became employee numbers carry the BC user name.
@@ -60,6 +63,7 @@ codeunit 50152 "POS Shift Management"
         Shift.SetFilter(Status, '%1|%2', Shift.Status::Open, Shift.Status::Closing);
         if Shift.FindFirst() then
             Error(ShiftAlreadyOpenErr, Cashier, Shift."No.", Shift.Status);
+        CheckFloatMatchesAccount(POSSetup, Cashier, OpeningFloat);
 
         Shift.Reset();
         Shift.Init();
@@ -73,6 +77,54 @@ codeunit 50152 "POS Shift Management"
 
         ActingCashier.ShowMessage(StrSubstNo(ShiftOpenedMsg, Shift."No.", FormatAmt(OpeningFloat)));
         exit(Shift."No.");
+    end;
+
+    // With cashier accounts, the float is cash treasury gave the cashier (a received cash transfer), so the
+    // drawer count must equal the account balance.
+    local procedure CheckFloatMatchesAccount(POSSetup: Record "POS Setup"; Cashier: Code[50]; OpeningFloat: Decimal)
+    var
+        CashAccounts: Codeunit "POS Cash Accounts";
+        AccountNo: Code[20];
+        AccountBalance: Decimal;
+    begin
+        if not POSSetup."Post Cash to Cashier Accounts" then
+            exit;
+        AccountNo := CashAccounts.CashierAccount(Cashier);
+        AccountBalance := CashAccounts.Balance(AccountNo);
+        if OpeningFloat <> AccountBalance then
+            Error(FloatMismatchErr, FormatAmt(OpeningFloat), AccountNo, FormatAmt(AccountBalance));
+    end;
+
+    /// <summary>
+    /// The balance of the current cashier's cash account, or 0 when cashier accounts are not used.
+    /// </summary>
+    procedure CashierAccountBalance(): Decimal
+    var
+        POSSetup: Record "POS Setup";
+        CashAccounts: Codeunit "POS Cash Accounts";
+    begin
+        if not POSSetup.Get() then
+            exit(0);
+        if not POSSetup."Post Cash to Cashier Accounts" then
+            exit(0);
+        exit(CashAccounts.Balance(CashAccounts.CashierAccount(CopyStr(ActingCashier.RequireCashier(), 1, 50))));
+    end;
+
+    /// <summary>
+    /// Deletes an Open shift with no sales, for example one opened by mistake (supervisor only). The rules are in
+    /// the OnDelete trigger of "POS Shift".
+    /// </summary>
+    procedure DeleteMistakenShift(ShiftNo: Code[20]): Boolean
+    var
+        Shift: Record "POS Shift";
+    begin
+        if not IsSupervisor() then
+            Error(NoDeletePermissionErr);
+        if not Confirm(DeleteShiftQst, false, ShiftNo) then
+            exit(false);
+        Shift.Get(ShiftNo);
+        Shift.Delete(true);
+        exit(true);
     end;
 
     /// <summary>

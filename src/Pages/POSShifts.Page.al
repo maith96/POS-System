@@ -7,6 +7,7 @@ page 50153 "POS Shifts"
     Caption = 'POS Shifts';
     CardPageId = "POS Shift Card";
     Editable = false;
+    DeleteAllowed = false; // deletion only through Delete Shift (mistaken Open shifts)
     SourceTableView = sorting("No.") order(descending);
 
     layout
@@ -197,6 +198,24 @@ page 50153 "POS Shifts"
                 begin
                     ShiftMgt.ApproveShift(Rec);
                     CurrPage.Update(false);
+                end;
+            }
+            action(DeleteShift)
+            {
+                Caption = 'Delete Shift';
+                ApplicationArea = All;
+                Image = Delete;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec.Status = Rec.Status::Open;
+                ToolTip = 'Delete an Open shift that has no sales, for example one opened by mistake or with the wrong float (supervisor only). Any other shift must be closed.';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    if ShiftMgt.DeleteMistakenShift(Rec."No.") then
+                        CurrPage.Update(false);
                 end;
             }
         }

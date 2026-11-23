@@ -199,4 +199,24 @@ table 50151 "POS Shift"
         key(Status; Status) { }
         key(ClosedDate; "Closed Date", "Cashier Code") { }
     }
+
+    var
+        DeleteNotOpenErr: Label 'Shift %1 is %2. Only an Open shift opened by mistake can be deleted; close it instead.', Comment = '%1 = shift no., %2 = status';
+        DeleteHasSalesErr: Label 'Shift %1 has sales, so it cannot be deleted. Close it instead.', Comment = '%1 = shift no.';
+
+    // A shift is an audit record: only an Open shift with no sales (opened by mistake) may go. Nothing has
+    // been posted against it, so its opening count lines go with it.
+    trigger OnDelete()
+    var
+        POSHeader: Record "POS Sales Header";
+        CashCount: Record "POS Shift Cash Count";
+    begin
+        if Status <> Status::Open then
+            Error(DeleteNotOpenErr, "No.", Status);
+        POSHeader.SetRange("Shift No.", "No.");
+        if not POSHeader.IsEmpty() then
+            Error(DeleteHasSalesErr, "No.");
+        CashCount.SetRange("Shift No.", "No.");
+        CashCount.DeleteAll();
+    end;
 }
