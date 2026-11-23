@@ -1,7 +1,7 @@
 // Who is the cashier of the sale being handled? Always an employee no., on both tills.
 // The staff portal calls BC as ONE service account, so "POS Portal Till" names the cashier it acts for here.
 // In the BC client and the touch till page it is the employee linked to the signed-in BC user
-// ("User Name" on Staff Portal Users). Everything that records or filters by cashier (sales, shifts,
+// ("POS Employee No." on User Setup). Everything that records or filters by cashier (sales, shifts,
 // loyalty entries) uses GetCashier() instead of UserId().
 // Supervisor actions (approve, count, recount) record both the real UserId() and the employee no.
 codeunit 50179 "POS Acting Cashier"
@@ -13,7 +13,7 @@ codeunit 50179 "POS Acting Cashier"
         Access: Codeunit "POS Portal Access";
         Cashier: Code[50];
         Active: Boolean;
-        NotLinkedErr: Label 'Your BC user %1 is not linked to an employee, so you cannot use the till. Ask a supervisor to set your user name on Staff Portal Users.', Comment = '%1 = user name';
+        NotLinkedErr: Label 'Your BC user %1 is not linked to an employee, so you cannot use the till. Ask an administrator to set your POS Employee No. on User Setup.', Comment = '%1 = user name';
         NotActiveErr: Label 'Employee %1 is not active, so you cannot use the till. Ask your supervisor.', Comment = '%1 = employee no.';
 
     procedure SetCashier(NewCashier: Code[50])

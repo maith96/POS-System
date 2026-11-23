@@ -15,10 +15,6 @@ page 50172 "POS Portal Users"
             {
                 field("Staff Code"; Rec."Staff Code") { }
                 field("Employee No."; Rec."Employee No.") { }
-                field("User Name"; Rec."User Name")
-                {
-                    Caption = 'BC User Name';
-                }
                 field("Full Name"; Rec."Full Name") { }
                 field(Role; Rec.Role) { }
                 field(Blocked; Rec.Blocked) { }
@@ -49,7 +45,7 @@ page 50172 "POS Portal Users"
                 var
                     Dialog: Page "POS Set Portal Password";
                 begin
-                    if (Rec."Employee No." = '') and (Rec."User Name" = '') then
+                    if Rec."Employee No." = '' then
                         Error(NoLinkErr);
                     Dialog.SetStaff(Rec."Staff Code", Rec."Full Name");
                     if Dialog.RunModal() = Action::OK then begin

@@ -234,7 +234,6 @@ codeunit 50171 "POS Staff Portal"
         Result.Add('staffCode', PortalUser."Staff Code");
         Result.Add('cashierCode', PortalUser.CashierCode());
         Result.Add('employeeNo', PortalUser."Employee No.");
-        Result.Add('userName', PortalUser."User Name");
         Result.Add('fullName', PortalUser."Full Name");
         Result.Add('role', LowerCase(Format(PortalUser.Role)));
         Result.Add('location', POSSetup."Default Location Code");

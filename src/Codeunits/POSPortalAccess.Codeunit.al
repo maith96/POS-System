@@ -6,6 +6,7 @@ codeunit 50182 "POS Portal Access"
 {
     Permissions = tabledata Employee = R,
                   tabledata User = R,
+                  tabledata "User Setup" = R,
                   tabledata "POS Portal User" = RIM;
 
     var
@@ -56,19 +57,14 @@ codeunit 50182 "POS Portal Access"
     end;
 
     /// <summary>
-    /// The employee no. linked to a BC user on Staff Portal Users, or '' if none.
+    /// The POS Employee No. of a BC user on User Setup, or '' if none.
     /// </summary>
     procedure EmployeeOfUser(UserName: Code[50]): Code[20]
     var
-        PortalUser: Record "POS Portal User";
+        UserSetup: Record "User Setup";
     begin
-        if UserName = '' then
-            exit('');
-        PortalUser.SetCurrentKey("User Name");
-        PortalUser.SetRange("User Name", UserName);
-        PortalUser.SetFilter("Employee No.", '<>%1', '');
-        if PortalUser.FindFirst() then
-            exit(PortalUser."Employee No.");
+        if UserSetup.Get(UserName) then
+            exit(UserSetup."POS Employee No.");
         exit('');
     end;
 
