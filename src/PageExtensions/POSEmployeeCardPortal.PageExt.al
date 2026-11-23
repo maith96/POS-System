@@ -19,7 +19,7 @@ pageextension 50183 "POS Employee Card Portal" extends "Employee Card"
                 {
                     ApplicationArea = All;
                     Caption = 'Staff Portal Role';
-                    Visible = HasPortalUser; // employees without portal access have no role
+                    Enabled = HasPortalUser; // not Visible: a card sets Visible once, before the record loads
                     ToolTip = 'Cashiers see their own shifts and sales. Supervisors and Admins also see the read-only Admin section of the staff portal. Only supervisors can change it.';
 
                     trigger OnValidate()
