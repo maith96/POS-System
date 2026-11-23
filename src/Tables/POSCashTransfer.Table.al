@@ -132,6 +132,7 @@ table 50192 "POS Cash Transfer"
         MaxHoldingErr: Label 'Account %1 may hold at most %2. After this transfer it would hold %3.', Comment = '%1 = account, %2 = maximum, %3 = balance after';
         SameUserErr: Label 'The transfer must be received by someone other than %1, who sent it.', Comment = '%1 = user who sent it';
         OnlyOpenDeleteErr: Label 'Only an Open transfer can be deleted. Transfer %1 is %2.', Comment = '%1 = no., %2 = status';
+        CountMismatchErr: Label 'The cash counted is %1 but the transfer is %2. Count again; if the transfer amount is wrong, the sender must cancel it and correct it.', Comment = '%1 = counted total, %2 = transfer amount';
         PostDescTxt: Label 'Cash transfer %1 to %2', Comment = '%1 = transfer no., %2 = to account';
 
     trigger OnInsert()
@@ -164,9 +165,13 @@ table 50192 "POS Cash Transfer"
     end;
 
     trigger OnDelete()
+    var
+        CashCount: Record "POS Cash Transfer Count";
     begin
         if Status <> Status::Open then
             Error(OnlyOpenDeleteErr, "No.", Status);
+        CashCount.SetRange("Transfer No.", "No.");
+        CashCount.DeleteAll();
     end;
 
     procedure TestOpen()
@@ -207,16 +212,34 @@ table 50192 "POS Cash Transfer"
     /// <summary>
     /// Sent to Received: re-checks the transfer, posts it and stamps the receiver, all in one transaction.
     /// </summary>
-    procedure Receive()
+    /// <summary>
+    /// TempCount is the receiver's denomination count; it is required, and must add up to Amount, only when
+    /// CountRequired(). PortalReceive: the staff portal posts as one service account, so the sender is compared
+    /// by employee instead of by BC user.
+    /// </summary>
+    procedure Receive(var TempCount: Record "POS Cash Transfer Count" temporary; PortalReceive: Boolean)
     var
         GenJnlLine: Record "Gen. Journal Line";
+        CashCount: Record "POS Cash Transfer Count";
         GenJnlPostLine: Codeunit "Gen. Jnl.-Post Line";
+        ActingCashier: Codeunit "POS Acting Cashier";
+        Counted: Decimal;
     begin
         if Status <> Status::Sent then
             Error(NotSentErr, "No.", Status);
-        if "Sent By" = UserId() then
-            Error(SameUserErr, "Sent By");
+        if PortalReceive then begin
+            if ("Sent By Employee" <> '') and ("Sent By Employee" = CurrentEmployee()) then
+                Error(SameUserErr, "Sent By Employee");
+        end else
+            if "Sent By" = UserId() then
+                Error(SameUserErr, "Sent By");
         CheckTransfer();
+        if CountRequired() then begin
+            TempCount.CalcSums(Amount);
+            Counted := TempCount.Amount;
+            if Counted <> Amount then
+                Error(CountMismatchErr, Format(Counted, 0, '<Precision,2:2><Standard Format,0>'), Format(Amount, 0, '<Precision,2:2><Standard Format,0>'));
+        end;
 
         GenJnlLine.Init();
         GenJnlLine."Line No." := 10000;
@@ -231,11 +254,35 @@ table 50192 "POS Cash Transfer"
         GenJnlLine.Validate(Amount, Amount);
         GenJnlPostLine.RunWithCheck(GenJnlLine);
 
+        if CountRequired() and TempCount.FindSet() then
+            repeat
+                CashCount := TempCount;
+                CashCount."Transfer No." := "No.";
+                CashCount."Counted By" := CopyStr(UserId(), 1, MaxStrLen(CashCount."Counted By"));
+                CashCount."Counted By Employee" := CurrentEmployee();
+                CashCount.Insert();
+            until TempCount.Next() = 0;
+
         Status := Status::Received;
         "Received By" := CopyStr(UserId(), 1, MaxStrLen("Received By"));
         "Received By Employee" := CurrentEmployee();
         "Received At" := CurrentDateTime();
         Modify(false);
+    end;
+
+    /// <summary>
+    /// Physical cash changes hands between Treasury and a Cashier (either way): the receiver counts it by denomination.
+    /// </summary>
+    procedure CountRequired(): Boolean
+    var
+        FromAcc: Record "Bank Account";
+        ToAcc: Record "Bank Account";
+        T: Enum "POS Account Type";
+    begin
+        if not (FromAcc.Get("From Account") and ToAcc.Get("To Account")) then
+            exit(false);
+        exit(((FromAcc."POS Account Type" = T::Treasury) and (ToAcc."POS Account Type" = T::Cashier)) or
+             ((FromAcc."POS Account Type" = T::Cashier) and (ToAcc."POS Account Type" = T::Treasury)));
     end;
 
     local procedure CheckTransfer()

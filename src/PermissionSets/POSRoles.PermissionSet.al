@@ -51,6 +51,10 @@ permissionset 50126 "POS CASHIER"
         tabledata "Item Category" = R,
         tabledata "POS Shift" = RIM,
         tabledata "POS Shift Cash Count" = RIM,
+        tabledata "POS Cash Transfer" = RM, // receiving a transfer (BC till user, and the portal till)
+        tabledata "POS Cash Transfer Count" = RI,
+        table "POS Cash Transfer" = X,
+        table "POS Cash Transfer Count" = X,
         tabledata "Access Control" = R, // hides cash figures from non-supervisors
         codeunit "POS Shift Management" = X,
         codeunit "POS Open Shift" = X,
@@ -79,6 +83,7 @@ permissionset 50127 "POS SUPERVISOR"
         tabledata "MPESA Callback Buffer" = RIMD,
         tabledata "POS Loyalty Member" = RIMD,
         tabledata "POS Cash Transfer" = RIMD,
+        tabledata "POS Cash Transfer Count" = RIMD,
         table "POS Cash Transfer" = X,
         page "POS Cash Transfers" = X,
         page "POS Cash Transfer" = X,
@@ -114,10 +119,12 @@ permissionset 50128 "POS ACCOUNTANT"
         "D365 ITEM, VIEW";
     Permissions =
         tabledata "POS Cash Transfer" = RIMD,
+        tabledata "POS Cash Transfer Count" = RIMD,
         table "POS Cash Transfer" = X,
         page "POS Cash Transfers" = X,
         page "POS Cash Transfer" = X,
         page "POS Received Cash Transfers" = X,
+        page "POS Close Shift Dialog" = X, // the receive-cash count
         codeunit "POS Cash Accounts" = X,
         codeunit "POS Post Shift Sales" = X,
         tabledata "POS Setup" = R,

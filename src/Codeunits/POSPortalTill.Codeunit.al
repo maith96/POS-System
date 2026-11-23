@@ -6,6 +6,8 @@
 // the command in POS Till Controller, exactly as the BC till page does. The answer is the till state JSON
 // plus: ok, error, messages [{kind,text}], posted + changeDue (after posting), picker (item or held-sale list) and
 // receipt (after posting, and for the portal-only command "lastReceipt": the cashier's last posted sale, to reprint).
+// The portal-only commands "pendingTransfers" and "receiveTransfer" (codeunit "POS Receive Transfer") add "transfers":
+// the Sent cash transfers to this cashier's cash account.
 // A refused cashier gives { ok:false, denied:true, error }. A failed command is rolled back and comes back
 // as the unchanged state with ok:false and the error text.
 codeunit 50180 "POS Portal Till"
@@ -34,6 +36,7 @@ codeunit 50180 "POS Portal Till"
         ErrorText: Text;
         ReceiptDocNo: Code[20];
         WantsReceipt: Boolean;
+        WantsTransfers: Boolean;
     begin
         if (staffCode = '') or (StrLen(staffCode) > MaxStrLen(PortalUser."Staff Code")) then
             exit(Denied(UnknownStaffErr));
@@ -49,12 +52,21 @@ codeunit 50180 "POS Portal Till"
             ReceiptDocNo := LastPostedSale(PortalUser.CashierCode());
             command := 'refresh';
         end;
+        // Cash transfers to this cashier's account: the list (with the till state unchanged) and receiving one.
+        if command = 'pendingTransfers' then begin
+            WantsTransfers := true;
+            command := 'refresh';
+        end;
+        if command = 'receiveTransfer' then
+            WantsTransfers := true;
         // The sale is only used if it is this cashier's open, not held sale (the controller checks that).
         TillSession.SetCommand(command, payload);
         TillSession.SetDocNo(CopyStr(documentNo, 1, 20));
         TillSession.SetSelectedLine(0);
 
-        if IsAllowed(command) then
+        if command = 'receiveTransfer' then
+            Failed := not Codeunit.Run(Codeunit::"POS Receive Transfer")
+        else if IsAllowed(command) then
             Failed := not Codeunit.Run(Codeunit::"POS Till Controller")
         else begin
             Failed := true;
@@ -74,6 +86,8 @@ codeunit 50180 "POS Portal Till"
             State.Add('changeDue', TillSession.GetChange());
             ReceiptDocNo := TillSession.GetPostedDocNo();
         end;
+        if WantsTransfers then
+            State.Add('transfers', PendingTransfers(PortalUser.CashierCode()));
         if WantsReceipt and (ReceiptDocNo = '') then begin
             State.Replace('ok', false);
             State.Replace('error', NoReceiptErr);
@@ -94,6 +108,42 @@ codeunit 50180 "POS Portal Till"
         exit(CommandName in ['resume', 'refresh', 'scan', 'addItem', 'setQty', 'deleteLine', 'hold', 'recall', 'recallDoc',
             'newSale', 'payCash', 'payCard', 'payMpesa', 'checkMpesa', 'clearPayments', 'loyaltyPhone', 'redeem', 'post',
             'openShiftWith', 'closeShiftWith']);
+    end;
+
+    // The Sent transfers waiting on this cashier's own cash account: no, from, fromName, amount, reference, sentAt,
+    // and "count" (the receiver must count the cash by denomination).
+    local procedure PendingTransfers(CashierCode: Code[50]) Result: JsonArray
+    var
+        Transfer: Record "POS Cash Transfer";
+        AccountNo: Code[20];
+        Entry: JsonObject;
+    begin
+        if not TryCashierAccount(CashierCode, AccountNo) then
+            exit;
+        Transfer.SetRange(Status, Transfer.Status::Sent);
+        Transfer.SetRange("To Account", AccountNo);
+        if Transfer.FindSet() then
+            repeat
+                Transfer.CalcFields("From Account Name");
+                Clear(Entry);
+                Entry.Add('no', Transfer."No.");
+                Entry.Add('from', Transfer."From Account");
+                Entry.Add('fromName', Transfer."From Account Name");
+                Entry.Add('amount', Transfer.Amount);
+                Entry.Add('reference', Transfer.Reference);
+                Entry.Add('sentAt', Format(Transfer."Sent At", 0, '<Day,2>/<Month,2>/<Year4> <Hours24,2>:<Minutes,2>'));
+                Entry.Add('count', Transfer.CountRequired());
+                Result.Add(Entry);
+            until Transfer.Next() = 0;
+    end;
+
+    // A cashier without a cash account simply has nothing to receive.
+    [TryFunction]
+    local procedure TryCashierAccount(CashierCode: Code[50]; var AccountNo: Code[20])
+    var
+        CashAccounts: Codeunit "POS Cash Accounts";
+    begin
+        AccountNo := CashAccounts.CashierAccount(CashierCode);
     end;
 
     local procedure LastPostedSale(CashierCode: Code[50]): Code[20]

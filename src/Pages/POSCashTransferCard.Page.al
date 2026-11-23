@@ -81,11 +81,20 @@ page 50194 "POS Cash Transfer"
                 Promoted = true;
                 PromotedCategory = Process;
                 Enabled = Rec.Status = Rec.Status::Sent;
-                ToolTip = 'Confirm that the money arrived and post the transfer. It must be a different person than the sender.';
+                ToolTip = 'Confirm that the money arrived and post the transfer. It must be a different person than the sender. Cash between Treasury and a Cashier is counted note by note first.';
 
                 trigger OnAction()
+                var
+                    TempCount: Record "POS Cash Transfer Count" temporary;
+                    CountDialog: Page "POS Close Shift Dialog";
                 begin
-                    Rec.Receive();
+                    if Rec.CountRequired() then begin
+                        CountDialog.SetReceiveTransferMode(Rec."No.", Rec.Amount);
+                        if CountDialog.RunModal() <> Action::OK then
+                            exit;
+                        CountDialog.GetCount(TempCount);
+                    end;
+                    Rec.Receive(TempCount, false);
                     CurrPage.Update(false);
                 end;
             }

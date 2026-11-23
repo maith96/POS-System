@@ -16,7 +16,7 @@ page 50156 "POS Close Shift Dialog"
             {
                 Caption = 'Cash Count';
                 InstructionalText = 'Count all the cash in the drawer, including the float: how many of each note and coin. Do not look up the expected cash.';
-                Visible = not OpenMode;
+                Visible = not OpenMode and not ReceiveMode;
 
                 field(ShiftNoCtrl; ShiftNo)
                 {
@@ -40,6 +40,28 @@ page 50156 "POS Close Shift Dialog"
                     Editable = false;
                     Visible = ShowAccountBalance;
                     ToolTip = 'The cash treasury has given you. Your count must equal it to open the shift.';
+                }
+            }
+            group(ReceiveInfo)
+            {
+                Caption = 'Receive Cash';
+                InstructionalText = 'Count the cash you were handed: how many of each note and coin. The count must equal the transfer amount.';
+                Visible = ReceiveMode;
+
+                field(TransferNoCtrl; TransferNo)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Transfer No.';
+                    Editable = false;
+                    ToolTip = 'The cash transfer being received.';
+                }
+                field(TransferAmountCtrl; TransferAmount)
+                {
+                    ApplicationArea = All;
+                    Caption = 'Transfer amount';
+                    AutoFormatType = 1;
+                    Editable = false;
+                    ToolTip = 'The amount the sender sent. Your count must equal it.';
                 }
             }
             group(Columns)
@@ -95,7 +117,11 @@ page 50156 "POS Close Shift Dialog"
         ShowAccountBalance: Boolean;
         AccountBalance: Decimal;
         SupervisorMode: Boolean;
+        ReceiveMode: Boolean;
+        TransferNo: Code[20];
+        TransferAmount: Decimal;
         TotalCaption: Text;
+        ReceiveCaptionTxt: Label 'Receive Cash';
         SupervisorCaptionTxt: Label 'Supervisor Count';
         OpenCaptionTxt: Label 'Open Shift';
         CountedCashTxt: Label 'Counted Cash';
@@ -114,11 +140,44 @@ page 50156 "POS Close Shift Dialog"
             CurrPage.Caption(OpenCaptionTxt);
             TotalCaption := OpeningFloatTxt;
         end;
+        if ReceiveMode then
+            CurrPage.Caption(ReceiveCaptionTxt);
     end;
 
     procedure SetSupervisorMode()
     begin
         SupervisorMode := true;
+    end;
+
+    procedure SetReceiveTransferMode(NewTransferNo: Code[20]; NewAmount: Decimal)
+    begin
+        ReceiveMode := true;
+        TransferNo := NewTransferNo;
+        TransferAmount := NewAmount;
+    end;
+
+    /// <summary>
+    /// The count as lines for POS Cash Transfer.Receive (denomination 0 is the loose coins amount).
+    /// </summary>
+    procedure GetCount(var TempCount: Record "POS Cash Transfer Count" temporary)
+    var
+        i: Integer;
+    begin
+        TempCount.Reset();
+        TempCount.DeleteAll();
+        for i := 1 to ArrayLen(Qty) do
+            if (Qty[i] <> 0) and (CountCoins or (i <= 5)) then begin
+                TempCount.Init();
+                TempCount.Denomination := Denomination(i);
+                TempCount.Quantity := Qty[i];
+                TempCount.Amount := Qty[i] * Denomination(i);
+                TempCount.Insert();
+            end;
+        if (CoinsAmount <> 0) and not CountCoins then begin
+            TempCount.Init();
+            TempCount.Amount := CoinsAmount;
+            TempCount.Insert();
+        end;
     end;
 
     procedure SetOpenMode()
