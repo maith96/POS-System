@@ -106,6 +106,7 @@ table 50192 "POS Cash Transfer"
         NotSentErr: Label 'Transfer %1 is %2, not Sent.', Comment = '%1 = no., %2 = status';
         NotOpenSendErr: Label 'Transfer %1 is %2, not Open.', Comment = '%1 = no., %2 = status';
         MoveNotAllowedErr: Label 'Cash cannot be moved from a %1 account to a %2 account.', Comment = '%1 = from account type, %2 = to account type';
+        BankTypeTxt: Label 'bank';
         SameAccountErr: Label 'From Account and To Account cannot be the same.';
         LocationErr: Label '%1 and %2 are at different locations (%3 and %4). Both accounts must be at the same location.', Comment = '%1 = from account, %2 = to account, %3 = from location, %4 = to location';
         AmountErr: Label 'Amount must be more than 0.';
@@ -252,7 +253,7 @@ table 50192 "POS Cash Transfer"
                 Allowed := ToAcc."POS Account Type" = T::Treasury;
         end;
         if not Allowed then
-            Error(MoveNotAllowedErr, FromAcc."POS Account Type", ToAcc."POS Account Type");
+            Error(MoveNotAllowedErr, TypeName(FromAcc."POS Account Type"), TypeName(ToAcc."POS Account Type"));
 
         // Treasury <-> Cashier and Cashier <-> Cashier stay inside one branch.
         if FromAcc."POS Account Type" in [T::Treasury, T::Cashier] then
@@ -262,5 +263,13 @@ table 50192 "POS Cash Transfer"
                 if FromAcc."POS Location Code" <> ToAcc."POS Location Code" then
                     Error(LocationErr, FromAcc."No.", ToAcc."No.", FromAcc."POS Location Code", ToAcc."POS Location Code");
             end;
+    end;
+
+    // A bank account without a POS type is an ordinary bank account; its blank type would leave a gap in messages.
+    local procedure TypeName(AccountType: Enum "POS Account Type"): Text
+    begin
+        if AccountType = AccountType::" " then
+            exit(BankTypeTxt);
+        exit(Format(AccountType));
     end;
 }
