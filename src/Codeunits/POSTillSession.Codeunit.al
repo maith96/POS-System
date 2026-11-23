@@ -15,6 +15,7 @@ codeunit 50168 "POS Till Session"
         ErrorText: Text;
         ChangeAmount: Decimal;
         ChangeSet: Boolean;
+        PostedDocNo: Code[20];
         Messages: JsonArray;
 
     /// <summary>
@@ -30,6 +31,7 @@ codeunit 50168 "POS Till Session"
         ErrorText := '';
         ChangeAmount := 0;
         ChangeSet := false;
+        PostedDocNo := '';
     end;
 
     procedure GetCommandName(): Text
@@ -97,10 +99,19 @@ codeunit 50168 "POS Till Session"
         exit(ErrorText);
     end;
 
-    procedure SetChange(NewAmount: Decimal)
+    /// <summary>
+    /// A sale was posted: the change to give and the sale's document no. (for its receipt).
+    /// </summary>
+    procedure SetChange(NewAmount: Decimal; NewPostedDocNo: Code[20])
     begin
         ChangeAmount := NewAmount;
         ChangeSet := true;
+        PostedDocNo := NewPostedDocNo;
+    end;
+
+    procedure GetPostedDocNo(): Code[20]
+    begin
+        exit(PostedDocNo);
     end;
 
     procedure HasChange(): Boolean

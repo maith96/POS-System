@@ -685,7 +685,7 @@ codeunit 50166 "POS Till Controller"
 
         TillSession.SetDocNo('');
         TillSession.SetSelectedLine(0);
-        TillSession.SetChange(ChangeDue);
+        TillSession.SetChange(ChangeDue, DocNo);
         if POSHeader.Get(DocNo) then
             if POSHeader."eTIMS Status" = POSHeader."eTIMS Status"::Failed then
                 TillSession.SetInfo(StrSubstNo(ETIMSFailedTxt, POSHeader."eTIMS Error"));
