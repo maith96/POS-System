@@ -73,6 +73,11 @@ page 50154 "POS Shift Card"
                     ApplicationArea = All;
                     Visible = ShowCashFigures;
                 }
+                field("Counted By Employee"; Rec."Counted By Employee")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
                 field("Counted At"; Rec."Counted At")
                 {
                     ApplicationArea = All;
@@ -115,6 +120,7 @@ page 50154 "POS Shift Card"
                 Caption = 'Approval';
 
                 field("Approved By"; Rec."Approved By") { ApplicationArea = All; }
+                field("Approved By Employee"; Rec."Approved By Employee") { ApplicationArea = All; }
                 field("Approved At"; Rec."Approved At") { ApplicationArea = All; }
                 field("Difference Posted"; Rec."Difference Posted") { ApplicationArea = All; }
             }

@@ -20,7 +20,8 @@ tableextension 50188 "POS Bank Account" extends "Bank Account"
         {
             Caption = 'POS Cashier Code';
             DataClassification = EndUserIdentifiableInformation;
-            ToolTip = 'The cashier this account belongs to: the employee number for portal users, the user ID for BC till users.';
+            TableRelation = Employee;
+            ToolTip = 'The employee number of the cashier this account belongs to, on both the portal till and the BC till.';
 
             trigger OnValidate()
             begin

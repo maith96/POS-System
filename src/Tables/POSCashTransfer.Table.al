@@ -71,10 +71,22 @@ table 50192 "POS Cash Transfer"
             DataClassification = EndUserIdentifiableInformation;
             Editable = false;
         }
+        field(81; "Created By Employee"; Code[20])
+        {
+            Caption = 'Created By Employee';
+            TableRelation = Employee;
+            Editable = false;
+        }
         field(90; "Sent By"; Code[50])
         {
             Caption = 'Sent By';
             DataClassification = EndUserIdentifiableInformation;
+            Editable = false;
+        }
+        field(91; "Sent By Employee"; Code[20])
+        {
+            Caption = 'Sent By Employee';
+            TableRelation = Employee;
             Editable = false;
         }
         field(100; "Sent At"; DateTime)
@@ -86,6 +98,12 @@ table 50192 "POS Cash Transfer"
         {
             Caption = 'Received By';
             DataClassification = EndUserIdentifiableInformation;
+            Editable = false;
+        }
+        field(111; "Received By Employee"; Code[20])
+        {
+            Caption = 'Received By Employee';
+            TableRelation = Employee;
             Editable = false;
         }
         field(120; "Received At"; DateTime)
@@ -129,6 +147,15 @@ table 50192 "POS Cash Transfer"
         if "Posting Date" = 0D then
             "Posting Date" := WorkDate();
         "Created By" := CopyStr(UserId(), 1, MaxStrLen("Created By"));
+        "Created By Employee" := CurrentEmployee();
+    end;
+
+    // Blank when the BC user is not linked to an employee on Staff Portal Users.
+    local procedure CurrentEmployee(): Code[20]
+    var
+        ActingCashier: Codeunit "POS Acting Cashier";
+    begin
+        exit(CopyStr(ActingCashier.GetCashier(), 1, 20));
     end;
 
     trigger OnModify()
@@ -158,6 +185,7 @@ table 50192 "POS Cash Transfer"
         CheckTransfer();
         Status := Status::Sent;
         "Sent By" := CopyStr(UserId(), 1, MaxStrLen("Sent By"));
+        "Sent By Employee" := CurrentEmployee();
         "Sent At" := CurrentDateTime();
         Modify(false); // status change is not an edit: skip the open check in OnModify
     end;
@@ -171,6 +199,7 @@ table 50192 "POS Cash Transfer"
             Error(NotSentErr, "No.", Status);
         Status := Status::Open;
         "Sent By" := '';
+        "Sent By Employee" := '';
         "Sent At" := 0DT;
         Modify(false);
     end;
@@ -204,6 +233,7 @@ table 50192 "POS Cash Transfer"
 
         Status := Status::Received;
         "Received By" := CopyStr(UserId(), 1, MaxStrLen("Received By"));
+        "Received By Employee" := CurrentEmployee();
         "Received At" := CurrentDateTime();
         Modify(false);
     end;

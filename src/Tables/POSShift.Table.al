@@ -101,6 +101,13 @@ table 50151 "POS Shift"
             DataClassification = EndUserIdentifiableInformation;
             Editable = false;
         }
+        field(135; "Approved By Employee"; Code[20])
+        {
+            Caption = 'Approved By Employee';
+            TableRelation = Employee;
+            Editable = false;
+            ToolTip = 'The employee no. of the supervisor who approved the shift. Blank if their BC user is not linked to an employee.';
+        }
         field(140; "Approved At"; DateTime)
         {
             Caption = 'Approved At';
@@ -137,6 +144,13 @@ table 50151 "POS Shift"
             DataClassification = EndUserIdentifiableInformation;
             Editable = false;
             ToolTip = 'Supervisor who counted the drawer.';
+        }
+        field(195; "Counted By Employee"; Code[20])
+        {
+            Caption = 'Counted By Employee';
+            TableRelation = Employee;
+            Editable = false;
+            ToolTip = 'The employee no. of the supervisor who counted the drawer. Blank if their BC user is not linked to an employee.';
         }
         field(200; "Counted At"; DateTime)
         {

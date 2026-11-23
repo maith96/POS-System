@@ -146,6 +146,7 @@ page 50156 "POS Close Shift Dialog"
     local procedure InsertLine(SaveShiftNo: Code[20]; CountType: Option; Denom: Decimal; Quantity: Integer; Amount: Decimal)
     var
         CashCount: Record "POS Shift Cash Count";
+        ActingCashier: Codeunit "POS Acting Cashier";
     begin
         CashCount."Shift No." := SaveShiftNo;
         CashCount."Count Type" := CountType;
@@ -153,6 +154,7 @@ page 50156 "POS Close Shift Dialog"
         CashCount.Quantity := Quantity;
         CashCount.Amount := Amount;
         CashCount."Counted By" := CopyStr(UserId(), 1, MaxStrLen(CashCount."Counted By"));
+        CashCount."Counted By Employee" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(CashCount."Counted By Employee"));
         CashCount.Insert();
     end;
 

@@ -1,6 +1,7 @@
 // A staff member who can sign in to the staff portal (web app outside BC).
 // A portal user is a BC Employee (no BC user or licence needed). The portal shows the shifts and sales
-// whose Cashier Code equals CashierCode(): the Employee No., or the legacy "User Name" if no employee is linked.
+// whose Cashier Code equals CashierCode(): the Employee No. "User Name" links a BC user, whose BC till sales
+// and shifts are then recorded under the same Employee No.
 // Passwords are stored only as a salted PBKDF2 hash; see codeunit "POS Staff Portal".
 table 50170 "POS Portal User"
 {
@@ -44,12 +45,19 @@ table 50170 "POS Portal User"
             TableRelation = User."User Name";
             ValidateTableRelation = false;
             DataClassification = EndUserIdentifiableInformation;
-            ToolTip = 'Legacy link to a BC user. Only used as the cashier code when no Employee No. is set.';
+            ToolTip = 'The BC user this employee signs in to BC with, if any. Their sales and shifts on the BC till are recorded under the employee number, the same as on the portal till.';
 
             trigger OnValidate()
             var
                 User: Record User;
+                Other: Record "POS Portal User";
             begin
+                if "User Name" <> '' then begin
+                    Other.SetRange("User Name", "User Name");
+                    Other.SetFilter("Staff Code", '<>%1', "Staff Code");
+                    if Other.FindFirst() then
+                        Error(UserTakenErr, "User Name", Other."Staff Code");
+                end;
                 if "Full Name" = '' then begin
                     User.SetRange("User Name", "User Name");
                     if User.FindFirst() then
@@ -134,15 +142,14 @@ table 50170 "POS Portal User"
     var
         RoleSupervisorErr: Label 'Only supervisors can change a staff portal role.';
         EmployeeTakenErr: Label 'Employee %1 already has a staff portal user.', Comment = '%1 = employee no.';
+        UserTakenErr: Label 'BC user %1 is already linked to staff code %2.', Comment = '%1 = user name, %2 = staff code';
 
     /// <summary>
-    /// The cashier code recorded on this person's shifts and sales: the Employee No., else the legacy User Name.
+    /// The cashier code recorded on this person's shifts and sales: the Employee No.
     /// </summary>
     procedure CashierCode(): Code[50]
     begin
-        if "Employee No." <> '' then
-            exit("Employee No.");
-        exit("User Name");
+        exit("Employee No.");
     end;
 
     procedure HasPassword(): Boolean

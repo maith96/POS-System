@@ -40,7 +40,7 @@ codeunit 50182 "POS Portal Access"
     end;
 
     /// <summary>
-    /// True if no employee is linked (legacy BC-user link) or the employee is Active and not terminated.
+    /// True if the employee is Active and not terminated (also true for a blank no.; callers check for blank first).
     /// </summary>
     procedure EmployeeIsActive(EmployeeNo: Code[20]): Boolean
     var
@@ -53,6 +53,23 @@ codeunit 50182 "POS Portal Access"
         if Employee.Status <> Employee.Status::Active then
             exit(false);
         exit((Employee."Termination Date" = 0D) or (Employee."Termination Date" > Today()));
+    end;
+
+    /// <summary>
+    /// The employee no. linked to a BC user on Staff Portal Users, or '' if none.
+    /// </summary>
+    procedure EmployeeOfUser(UserName: Code[50]): Code[20]
+    var
+        PortalUser: Record "POS Portal User";
+    begin
+        if UserName = '' then
+            exit('');
+        PortalUser.SetCurrentKey("User Name");
+        PortalUser.SetRange("User Name", UserName);
+        PortalUser.SetFilter("Employee No.", '<>%1', '');
+        if PortalUser.FindFirst() then
+            exit(PortalUser."Employee No.");
+        exit('');
     end;
 
     /// <summary>

@@ -33,6 +33,12 @@ codeunit 50152 "POS Shift Management"
         SupervisorCountedPendingMsg: Label 'Shift %1 counted; the difference needs approval.\Expected cash: %2\Cashier count: %3\Supervisor count: %4\Difference: %5\Count mismatch: %6', Comment = '%1 = shift no., %2 = expected, %3 = cashier count, %4 = supervisor count, %5 = difference, %6 = mismatch';
         OwnRecountErr: Label 'You cannot recount your own shift. Ask another supervisor, or turn on Allow Self-Approval in POS Setup.';
 
+    // Shifts opened before cashier codes became employee numbers carry the BC user name.
+    local procedure IsOwnShift(Shift: Record "POS Shift"): Boolean
+    begin
+        exit((Shift."Cashier Code" = UserId()) or (Shift."Cashier Code" = ActingCashier.GetCashier()));
+    end;
+
     /// <summary>
     /// Opens a new shift for the current user with the given float. Error if the cashier already has an Open or Closing shift.
     /// </summary>
@@ -49,7 +55,7 @@ codeunit 50152 "POS Shift Management"
         if POSSetup."Shift Nos." = '' then
             Error(NoShiftNosErr);
 
-        Cashier := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Cashier));
+        Cashier := CopyStr(ActingCashier.RequireCashier(), 1, MaxStrLen(Cashier));
         Shift.SetRange("Cashier Code", Cashier);
         Shift.SetFilter(Status, '%1|%2', Shift.Status::Open, Shift.Status::Closing);
         if Shift.FindFirst() then
@@ -144,7 +150,7 @@ codeunit 50152 "POS Shift Management"
         if not IsSupervisor() then
             Error(NoRecountPermissionErr);
         POSSetup.Get();
-        if (Shift."Cashier Code" = UserId()) and not POSSetup."Allow Self-Approval" then
+        if IsOwnShift(Shift) and not POSSetup."Allow Self-Approval" then
             Error(OwnRecountErr);
 
         repeat
@@ -175,6 +181,7 @@ codeunit 50152 "POS Shift Management"
         if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then begin
             Shift.Status := Shift.Status::Closed;
             Shift."Approved By" := CopyStr(UserId(), 1, MaxStrLen(Shift."Approved By"));
+            Shift."Approved By Employee" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Shift."Approved By Employee"));
             Shift."Approved At" := CurrentDateTime();
         end;
         Shift.Modify(true);
@@ -283,7 +290,7 @@ codeunit 50152 "POS Shift Management"
         if not IsSupervisor() then
             Error(NoCountPermissionErr);
         POSSetup.Get();
-        if (Shift."Cashier Code" = UserId()) and not POSSetup."Allow Self-Approval" then
+        if IsOwnShift(Shift) and not POSSetup."Allow Self-Approval" then
             Error(OwnCountErr);
 
         repeat
@@ -318,10 +325,12 @@ codeunit 50152 "POS Shift Management"
         Shift.Difference := Shift."Counted Cash" - Shift."Expected Cash";
         Shift."Count Mismatch" := Shift."Supervisor Count" - Shift."Cashier Count";
         Shift."Counted By" := CopyStr(UserId(), 1, MaxStrLen(Shift."Counted By"));
+        Shift."Counted By Employee" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Shift."Counted By Employee"));
         Shift."Counted At" := CurrentDateTime();
         if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then begin
             Shift.Status := Shift.Status::Closed;
             Shift."Approved By" := Shift."Counted By";
+            Shift."Approved By Employee" := Shift."Counted By Employee";
             Shift."Approved At" := Shift."Counted At";
         end else
             Shift.Status := Shift.Status::"Pending Approval";
@@ -351,7 +360,7 @@ codeunit 50152 "POS Shift Management"
         if not IsSupervisor() then
             Error(NoPermissionErr);
         POSSetup.Get();
-        if (Shift."Cashier Code" = UserId()) and not POSSetup."Allow Self-Approval" then
+        if IsOwnShift(Shift) and not POSSetup."Allow Self-Approval" then
             Error(OwnShiftErr);
 
         if (POSSetup."Cash Difference Account" <> '') and (Shift.Difference <> 0) then begin
@@ -360,6 +369,7 @@ codeunit 50152 "POS Shift Management"
         end;
 
         Shift."Approved By" := CopyStr(UserId(), 1, MaxStrLen(Shift."Approved By"));
+        Shift."Approved By Employee" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Shift."Approved By Employee"));
         Shift."Approved At" := CurrentDateTime();
         Shift."Difference Posted" := PostedDifference;
         if Shift."Closed Date" = 0D then

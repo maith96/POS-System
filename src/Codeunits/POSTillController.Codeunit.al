@@ -369,7 +369,7 @@ codeunit 50166 "POS Till Controller"
             exit;
         if not POSSetup."Require Open Shift" then
             exit;
-        Cashier := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Cashier));
+        Cashier := CopyStr(ActingCashier.RequireCashier(), 1, MaxStrLen(Cashier));
         if ShiftMgt.GetOpenShift(Cashier) = '' then
             Error(NoShiftErr);
     end;
@@ -765,6 +765,7 @@ codeunit 50166 "POS Till Controller"
                 CashCount."Shift No." := ShiftNo;
                 CashCount."Count Type" := CountType;
                 CashCount."Counted By" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(CashCount."Counted By"));
+                CashCount."Counted By Employee" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(CashCount."Counted By Employee"));
                 CashCount.Insert();
             until TempCount.Next() = 0;
     end;

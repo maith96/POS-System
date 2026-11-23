@@ -193,13 +193,15 @@ table 50115 "POS Cue"
     /// Called from the OnOpenPage trigger of every POS activities page.
     /// </summary>
     procedure InitForRoleCenter()
+    var
+        ActingCashier: Codeunit "POS Acting Cashier";
     begin
         Reset();
         if not Get() then begin
             Init();
             Insert();
         end;
-        SetRange("User Filter", CopyStr(UserId(), 1, MaxStrLen("User Filter")));
+        SetRange("User Filter", CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen("User Filter")));
         SetRange("Date Filter", WorkDate());
         SetRange("Month Filter", CalcDate('<-CM>', WorkDate()), CalcDate('<CM>', WorkDate()));
     end;

@@ -28,9 +28,12 @@ page 50194 "POS Cash Transfer"
                 Editable = false;
                 field(Status; Rec.Status) { ApplicationArea = All; }
                 field("Created By"; Rec."Created By") { ApplicationArea = All; }
+                field("Created By Employee"; Rec."Created By Employee") { ApplicationArea = All; }
                 field("Sent By"; Rec."Sent By") { ApplicationArea = All; }
+                field("Sent By Employee"; Rec."Sent By Employee") { ApplicationArea = All; }
                 field("Sent At"; Rec."Sent At") { ApplicationArea = All; }
                 field("Received By"; Rec."Received By") { ApplicationArea = All; }
+                field("Received By Employee"; Rec."Received By Employee") { ApplicationArea = All; }
                 field("Received At"; Rec."Received At") { ApplicationArea = All; }
             }
         }

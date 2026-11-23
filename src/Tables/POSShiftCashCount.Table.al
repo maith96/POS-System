@@ -38,6 +38,11 @@ table 50152 "POS Shift Cash Count"
         {
             Caption = 'Counted By';
         }
+        field(31; "Counted By Employee"; Code[20])
+        {
+            Caption = 'Counted By Employee';
+            TableRelation = Employee;
+        }
     }
 
     keys

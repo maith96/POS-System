@@ -29,7 +29,7 @@ codeunit 50165 "POS Sale Management"
             Error(SetupMissingErr);
 
         POSHeader."Posting Date" := WorkDate();
-        POSHeader."Cashier Code" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code"));
+        POSHeader."Cashier Code" := CopyStr(ActingCashier.RequireCashier(), 1, MaxStrLen(POSHeader."Cashier Code"));
         POSHeader."Location Code" := POSSetup."Default Location Code";
         POSHeader."Customer No." := POSSetup."Default Customer No.";
         POSHeader.Status := POSHeader.Status::Open;

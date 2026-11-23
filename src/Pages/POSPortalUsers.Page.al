@@ -17,7 +17,7 @@ page 50172 "POS Portal Users"
                 field("Employee No."; Rec."Employee No.") { }
                 field("User Name"; Rec."User Name")
                 {
-                    Caption = 'User Name (legacy)';
+                    Caption = 'BC User Name';
                 }
                 field("Full Name"; Rec."Full Name") { }
                 field(Role; Rec.Role) { }

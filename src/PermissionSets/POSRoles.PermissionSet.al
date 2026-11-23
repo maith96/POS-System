@@ -29,6 +29,7 @@ permissionset 50126 "POS CASHIER"
         page "POS Sale Totals FactBox" = X,
         page "POS Sales List" = X,
         codeunit "POS Portal Access" = X,
+        tabledata "POS Portal User" = r, // indirect: the till looks up the user's employee no.; no direct access to password hashes
         page "POS Activities" = X,
         page "POS Role Center" = X,
         tabledata "POS Loyalty Member" = RIM,
@@ -133,6 +134,8 @@ permissionset 50128 "POS ACCOUNTANT"
         page "POS Sale Totals FactBox" = X,
         page "POS Sales List" = X,
         codeunit "POS Portal Access" = X,
+        codeunit "POS Acting Cashier" = X, // the role centre cues count the user's own shifts and sales
+        tabledata "POS Portal User" = r, // indirect: only through code, so no access to password hashes
         page "MPESA Callback Buffer List" = X,
         page "POS Accountant Activities" = X,
         page "POS Accountant Role Center" = X,
@@ -180,6 +183,8 @@ permissionset 50129 "POS CUSTOMER CARE"
         page "POS Sale Totals FactBox" = X,
         page "POS Sales List" = X,
         codeunit "POS Portal Access" = X,
+        codeunit "POS Acting Cashier" = X, // the role centre cues count the user's own shifts and sales
+        tabledata "POS Portal User" = r, // indirect: only through code, so no access to password hashes
         page "MPESA Callback Buffer List" = X,
         page "POS Customer Care Activities" = X,
         page "POS Customer Care Role Center" = X,

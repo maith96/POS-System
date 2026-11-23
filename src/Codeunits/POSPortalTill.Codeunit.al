@@ -1,7 +1,7 @@
 // The till for the staff portal. Published as the web service "POSPortalTill" (see StaffPortalWebServices.xml):
 //   POST /ODataV4/POSPortalTill_Command?company=...  { "staffCode", "documentNo", "command", "payload" }
 // The portal server calls BC as one service account and names the cashier it acts for (staffCode). The
-// service looks the cashier up in the POS Portal User table, makes its cashier code (employee no., or the legacy BC user name) the acting cashier, restores
+// service looks the cashier up in the POS Portal User table, makes its cashier code (employee no.) the acting cashier, restores
 // the sale the till was working on (documentNo, only if it is that cashier's open, not held sale) and runs
 // the command in POS Till Controller, exactly as the BC till page does. The answer is the till state JSON
 // plus: ok, error, messages [{kind,text}], posted + changeDue (after posting), picker (item or held-sale list) and

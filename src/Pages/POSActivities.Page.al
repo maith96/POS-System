@@ -30,10 +30,11 @@ page 50116 "POS Activities"
                     trigger OnDrillDown()
                     var
                         POSHeader: Record "POS Sales Header";
+                        ActingCashier: Codeunit "POS Acting Cashier";
                     begin
                         POSHeader.SetRange(Status, POSHeader.Status::Open);
                         POSHeader.SetRange("On Hold", true);
-                        POSHeader.SetRange("Cashier Code", CopyStr(UserId(), 1, MaxStrLen(POSHeader."Cashier Code")));
+                        POSHeader.SetRange("Cashier Code", CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code")));
                         Page.Run(Page::"POS Sales List", POSHeader);
                     end;
                 }
