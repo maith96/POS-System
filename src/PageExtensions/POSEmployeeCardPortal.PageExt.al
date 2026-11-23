@@ -19,7 +19,7 @@ pageextension 50183 "POS Employee Card Portal" extends "Employee Card"
                 {
                     ApplicationArea = All;
                     Caption = 'Staff Portal Role';
-                    Enabled = HasPortalUser;
+                    Visible = HasPortalUser; // employees without portal access have no role
                     ToolTip = 'Cashiers see their own shifts and sales. Supervisors and Admins also see the read-only Admin section of the staff portal. Only supervisors can change it.';
 
                     trigger OnValidate()
@@ -43,7 +43,7 @@ pageextension 50183 "POS Employee Card Portal" extends "Employee Card"
                 action("POS Staff Portal Access")
                 {
                     ApplicationArea = All;
-                    Caption = 'Staff Portal Access';
+                    Caption = 'Give Staff Portal Access';
                     Image = EncryptionKeys;
                     ToolTip = 'Give this employee access to the staff portal and set a temporary password. They must change it the first time they sign in. Run it again to reset the password.';
 
@@ -96,6 +96,10 @@ pageextension 50183 "POS Employee Card Portal" extends "Employee Card"
                     end;
                 }
             }
+        }
+        addfirst(Promoted)
+        {
+            actionref("POS Staff Portal Access_Promoted"; "POS Staff Portal Access") { }
         }
     }
 
