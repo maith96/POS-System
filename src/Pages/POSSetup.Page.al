@@ -50,7 +50,7 @@ page 50103 "POS Setup"
             group(Payments)
             {
                 Caption = 'Payments';
-                InstructionalText = 'Account each payment method is posted to. Each POS sale posts the invoice and one customer payment per method used, applied to that invoice.';
+                InstructionalText = 'Account each payment method is posted to. With Post Sales at Shift Close off, each sale posts an invoice and one customer payment per method used. With it on, each method''s takings for the shift are posted once when the shift closes.';
                 field("Cash Bal. Account Type"; Rec."Cash Bal. Account Type") { ApplicationArea = All; }
                 field("Cash Bal. Account No."; Rec."Cash Bal. Account No.") { ApplicationArea = All; }
                 field("MPESA Bal. Account Type"; Rec."MPESA Bal. Account Type") { ApplicationArea = All; }
