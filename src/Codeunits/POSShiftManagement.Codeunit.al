@@ -35,6 +35,24 @@ codeunit 50152 "POS Shift Management"
         DeleteShiftQst: Label 'Delete shift %1? Do this only for a shift opened by mistake.', Comment = '%1 = shift no.';
         FloatMismatchErr: Label 'You counted %1, but your cash account %2 holds %3. The opening float must equal what treasury gave you. If a cash transfer to you is waiting, receive it first; otherwise ask your supervisor.', Comment = '%1 = counted float, %2 = bank account no., %3 = account balance';
         OwnRecountErr: Label 'You cannot recount your own shift. Ask another supervisor, or turn on Allow Self-Approval in POS Setup.';
+        OpenShiftConfirmQst: Label 'Open shift with a float of %1 from your cash account?', Comment = '%1 = account balance';
+        OpenShiftZeroConfirmQst: Label 'Your cash account holds 0.00. Open shift with no float?';
+        NoClosingShiftToRecountErr: Label 'You have no shift awaiting supervisor count to recount.';
+        NotOwnClosingRecountErr: Label 'Only the cashier of shift %1 can recount it while it is Awaiting Supervisor Count.', Comment = '%1 = shift no.';
+        CashierRecountedMsg: Label 'Shift %1 recounted. A supervisor must count the drawer before it is final.', Comment = '%1 = shift no.';
+        ReturnForRecountQst: Label 'Return shift %1 to Awaiting Supervisor Count so the cashier can recount the drawer? The current supervisor count will be cleared.', Comment = '%1 = shift no.';
+        ReturnedForRecountMsg: Label 'Shift %1 returned to Awaiting Supervisor Count. The cashier can now recount the drawer.', Comment = '%1 = shift no.';
+        NoReturnPermissionErr: Label 'Only a supervisor (permission set POS SUPERVISOR or POS SUPER) can return a shift for recount.';
+        OwnReturnErr: Label 'You cannot return your own shift for recount. Ask another supervisor, or turn on Allow Self-Approval in POS Setup.';
+        SupervisorCountedMismatchPendingMsg: Label 'Shift %1 counted; the count mismatch needs review.\Expected cash: %2\Cashier count: %3\Supervisor count: %4\Difference: %5\Count mismatch: %6', Comment = '%1 = shift no., %2 = expected, %3 = cashier count, %4 = supervisor count, %5 = difference, %6 = mismatch';
+        NoReturnTreasuryPermErr: Label 'Only a supervisor (permission set POS SUPERVISOR or POS SUPER) can return shift cash to Treasury.';
+        NotClosedReturnErr: Label 'Shift %1 is %2. Only a Closed shift can have its cash returned to Treasury.', Comment = '%1 = shift no., %2 = status';
+        CashierAccountsOffErr: Label 'Post Cash to Cashier Accounts is turned off in POS Setup.';
+        SalesNotPostedReturnErr: Label 'Post the sales of shift %1 first (Post Shift Sales) before returning cash to Treasury.', Comment = '%1 = shift no.';
+        AlreadyReturnedErr: Label 'Cash from shift %1 was already returned to Treasury on transfer %2.', Comment = '%1 = shift no., %2 = transfer no.';
+        NoCashToReturnErr: Label 'Shift %1 has no counted cash to return to Treasury.', Comment = '%1 = shift no.';
+        ReturnTreasuryQst: Label 'Return %1 from shift %2 to Treasury?', Comment = '%1 = counted cash, %2 = shift no.';
+        ReturnedToTreasuryMsg: Label 'Returned %1 from shift %2 to Treasury (transfer %3).', Comment = '%1 = counted cash, %2 = shift no., %3 = transfer no.';
 
     // Shifts opened before cashier codes became employee numbers carry the BC user name.
     local procedure IsOwnShift(Shift: Record "POS Shift"): Boolean
@@ -129,14 +147,76 @@ codeunit 50152 "POS Shift Management"
 
     /// <summary>
     /// Asks for the opening float and opens a shift (used by the Open Shift actions).
+    /// When cashier accounts are used, the cash was already counted when received from treasury,
+    /// so a one-click confirmation replaces the second denomination count and reuses the transfer's count.
     /// </summary>
     procedure OpenShiftWithDialog()
     var
+        POSSetup: Record "POS Setup";
         OpenDialog: Page "POS Close Shift Dialog";
+        AccountBalance: Decimal;
+        ShiftNo: Code[20];
+        Confirmed: Boolean;
     begin
+        if POSSetup.Get() and POSSetup."Post Cash to Cashier Accounts" then begin
+            AccountBalance := CashierAccountBalance();
+            if AccountBalance > 0 then
+                Confirmed := Confirm(OpenShiftConfirmQst, true, FormatAmt(AccountBalance))
+            else
+                Confirmed := Confirm(OpenShiftZeroConfirmQst, false);
+            if Confirmed then begin
+                ShiftNo := OpenShift(AccountBalance);
+                CopyOpeningCountFromTransfer(ShiftNo);
+            end;
+            exit;
+        end;
+
         OpenDialog.SetOpenMode();
         if OpenDialog.RunModal() = Action::OK then
             OpenDialog.SaveCount(OpenShift(OpenDialog.GetCountedCash()), 1); // 1 = Opening
+    end;
+
+    /// <summary>
+    /// When a shift is opened from the cashier's cash account balance without recounting, carries over the
+    /// denomination breakdown of the most recently received transfer to this cashier if its amount matches
+    /// the opening float.
+    /// </summary>
+    procedure CopyOpeningCountFromTransfer(ShiftNo: Code[20])
+    var
+        POSSetup: Record "POS Setup";
+        Shift: Record "POS Shift";
+        Transfer: Record "POS Cash Transfer";
+        TransferCount: Record "POS Cash Transfer Count";
+        ShiftCount: Record "POS Shift Cash Count";
+        CashAccounts: Codeunit "POS Cash Accounts";
+        AccountNo: Code[20];
+    begin
+        if not POSSetup.Get() or not POSSetup."Post Cash to Cashier Accounts" then
+            exit;
+        if not Shift.Get(ShiftNo) then
+            exit;
+        if Shift."Opening Float" <= 0 then
+            exit;
+        AccountNo := CashAccounts.CashierAccount(Shift."Cashier Code");
+        Transfer.SetRange(Status, Transfer.Status::Received);
+        Transfer.SetRange("To Account", AccountNo);
+        Transfer.SetRange(Amount, Shift."Opening Float");
+        if not Transfer.FindLast() then
+            exit;
+        TransferCount.SetRange("Transfer No.", Transfer."No.");
+        if not TransferCount.FindSet() then
+            exit;
+        repeat
+            ShiftCount.Init();
+            ShiftCount."Shift No." := Shift."No.";
+            ShiftCount."Count Type" := ShiftCount."Count Type"::Opening;
+            ShiftCount.Denomination := TransferCount.Denomination;
+            ShiftCount.Quantity := TransferCount.Quantity;
+            ShiftCount.Amount := TransferCount.Amount;
+            ShiftCount."Counted By" := TransferCount."Counted By";
+            ShiftCount."Counted By Employee" := TransferCount."Counted By Employee";
+            ShiftCount.Insert();
+        until TransferCount.Next() = 0;
     end;
 
     /// <summary>
@@ -162,8 +242,8 @@ codeunit 50152 "POS Shift Management"
             if CloseDialog.RunModal() <> Action::OK then
                 exit;
         until ConfirmCount(CloseDialog.GetCountedCash(), Shift."Opening Float" + Shift."Cash Sales");
+        CloseDialog.SaveCount(Shift."No.", 0); // 0 = Closing (saved before CloseShift so auto-return can copy it)
         CloseShift(Shift, CloseDialog.GetCountedCash());
-        CloseDialog.SaveCount(Shift."No.", 0); // 0 = Closing
     end;
 
     /// <summary>
@@ -211,8 +291,8 @@ codeunit 50152 "POS Shift Management"
             if CloseDialog.RunModal() <> Action::OK then
                 exit;
         until ConfirmCount(CloseDialog.GetCountedCash(), Shift."Expected Cash");
+        CloseDialog.SaveCount(Shift."No.", 2); // 2 = Supervisor (saved before RecountShift so auto-return can copy it)
         RecountShift(Shift, CloseDialog.GetCountedCash());
-        CloseDialog.SaveCount(Shift."No.", 2); // 2 = Supervisor
     end;
 
     procedure RecountShift(var Shift: Record "POS Shift"; CountedCash: Decimal)
@@ -227,10 +307,15 @@ codeunit 50152 "POS Shift Management"
         POSSetup.Get();
 
         Shift."Counted Cash" := CountedCash;
+        if Shift."Counted By" <> '' then begin
+            Shift."Supervisor Count" := CountedCash;
+            Shift."Count Mismatch" := Shift."Supervisor Count" - Shift."Cashier Count";
+        end;
         if Shift."Closed Date" = 0D then
             Shift."Closed Date" := WorkDate(); // shifts closed before 1.3 had none
         Shift.Difference := Shift."Counted Cash" - Shift."Expected Cash";
-        if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then begin
+        if (Abs(Shift.Difference) <= POSSetup."Max. Cash Difference") and
+           ((Shift."Counted By" = '') or (Abs(Shift."Count Mismatch") <= POSSetup."Max. Cash Difference")) then begin
             Shift.Status := Shift.Status::Closed;
             Shift."Approved By" := CopyStr(UserId(), 1, MaxStrLen(Shift."Approved By"));
             Shift."Approved By Employee" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Shift."Approved By Employee"));
@@ -269,6 +354,113 @@ codeunit 50152 "POS Shift Management"
         if Shift.FindFirst() then
             exit(Shift."No.");
         exit('');
+    end;
+
+    /// <summary>
+    /// The number of the cashier's Closing (Awaiting Supervisor Count) shift, or blank if there is none.
+    /// </summary>
+    procedure GetClosingShift(Cashier: Code[50]): Code[20]
+    var
+        Shift: Record "POS Shift";
+    begin
+        Shift.SetRange("Cashier Code", Cashier);
+        Shift.SetRange(Status, Shift.Status::Closing);
+        if Shift.FindFirst() then
+            exit(Shift."No.");
+        exit('');
+    end;
+
+    /// <summary>
+    /// Cashier recounts their own shift while it is Awaiting Supervisor Count (status Closing), before a
+    /// supervisor has counted the drawer. Expected Cash stays frozen as at close.
+    /// </summary>
+    procedure CashierRecountWithDialog(var Shift: Record "POS Shift")
+    var
+        CountDialog: Page "POS Close Shift Dialog";
+    begin
+        Shift.Get(Shift."No.");
+        if Shift.Status <> Shift.Status::Closing then
+            Error(NotClosingErr, Shift."No.", Shift.Status);
+        if not IsOwnShift(Shift) then
+            Error(NotOwnClosingRecountErr, Shift."No.");
+
+        repeat
+            Clear(CountDialog);
+            CountDialog.SetShift(Shift."No.");
+            if CountDialog.RunModal() <> Action::OK then
+                exit;
+        until ConfirmCount(CountDialog.GetCountedCash(), Shift."Expected Cash");
+        CashierRecount(Shift, CountDialog.GetCountedCash());
+        CountDialog.SaveCount(Shift."No.", 0); // 0 = Closing (replaces previous cashier count)
+    end;
+
+    /// <summary>
+    /// Recounts the acting cashier's Closing shift without a dialog (staff portal till). Returns the shift no.
+    /// </summary>
+    procedure CashierRecountOwnShift(CountedCash: Decimal; ConfirmZero: Boolean): Code[20]
+    var
+        Shift: Record "POS Shift";
+        ShiftNo: Code[20];
+    begin
+        ShiftNo := GetClosingShift(CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Shift."Cashier Code")));
+        if ShiftNo = '' then
+            Error(NoClosingShiftToRecountErr);
+        Shift.Get(ShiftNo);
+        if (CountedCash = 0) and not ConfirmZero and (Shift."Expected Cash" > 0) then
+            Error(ZeroCountConfirmErr);
+        CashierRecount(Shift, CountedCash);
+        exit(Shift."No.");
+    end;
+
+    procedure CashierRecount(var Shift: Record "POS Shift"; CountedCash: Decimal)
+    begin
+        if CountedCash < 0 then
+            Error(NegativeCountErr);
+        Shift.Get(Shift."No.");
+        if Shift.Status <> Shift.Status::Closing then
+            Error(NotClosingErr, Shift."No.", Shift.Status);
+
+        Shift."Cashier Count" := CountedCash;
+        Shift."Counted Cash" := CountedCash;
+        Shift."Closed At" := CurrentDateTime();
+        Shift.Modify(true);
+        ActingCashier.ShowMessage(StrSubstNo(CashierRecountedMsg, Shift."No."));
+    end;
+
+    /// <summary>
+    /// Supervisor sends a Pending Approval shift back to Awaiting Supervisor Count (status Closing) so the
+    /// cashier can recount the drawer. Clears the supervisor count so both parties recount cleanly.
+    /// </summary>
+    procedure ReturnForRecount(var Shift: Record "POS Shift")
+    var
+        POSSetup: Record "POS Setup";
+        CashCount: Record "POS Shift Cash Count";
+    begin
+        Shift.Get(Shift."No.");
+        if Shift.Status <> Shift.Status::"Pending Approval" then
+            Error(NotPendingRecountErr, Shift."No.", Shift.Status);
+        if not IsSupervisor() then
+            Error(NoReturnPermissionErr);
+        POSSetup.Get();
+        if IsOwnShift(Shift) and not POSSetup."Allow Self-Approval" then
+            Error(OwnReturnErr);
+        if not Confirm(ReturnForRecountQst, false, Shift."No.") then
+            exit;
+
+        CashCount.SetRange("Shift No.", Shift."No.");
+        CashCount.SetRange("Count Type", CashCount."Count Type"::Supervisor);
+        CashCount.DeleteAll();
+
+        Shift."Supervisor Count" := 0;
+        Shift."Count Mismatch" := 0;
+        Shift.Difference := 0;
+        Shift."Counted Cash" := Shift."Cashier Count";
+        Shift."Counted By" := '';
+        Shift."Counted By Employee" := '';
+        Shift."Counted At" := 0DT;
+        Shift.Status := Shift.Status::Closing;
+        Shift.Modify(true);
+        Message(ReturnedForRecountMsg, Shift."No.");
     end;
 
     /// <summary>
@@ -352,8 +544,8 @@ codeunit 50152 "POS Shift Management"
             if CountDialog.RunModal() <> Action::OK then
                 exit;
         until ConfirmCount(CountDialog.GetCountedCash(), Shift."Expected Cash");
+        CountDialog.SaveCount(Shift."No.", 2); // 2 = Supervisor (saved before SupervisorCount so auto-return can copy it)
         SupervisorCount(Shift, CountDialog.GetCountedCash());
-        CountDialog.SaveCount(Shift."No.", 2); // 2 = Supervisor
     end;
 
     /// <summary>
@@ -379,7 +571,8 @@ codeunit 50152 "POS Shift Management"
         Shift."Counted By" := CopyStr(UserId(), 1, MaxStrLen(Shift."Counted By"));
         Shift."Counted By Employee" := CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(Shift."Counted By Employee"));
         Shift."Counted At" := CurrentDateTime();
-        if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then begin
+        if (Abs(Shift.Difference) <= POSSetup."Max. Cash Difference") and
+           (Abs(Shift."Count Mismatch") <= POSSetup."Max. Cash Difference") then begin
             Shift.Status := Shift.Status::Closed;
             Shift."Approved By" := Shift."Counted By";
             Shift."Approved By Employee" := Shift."Counted By Employee";
@@ -393,6 +586,8 @@ codeunit 50152 "POS Shift Management"
 
         if Shift.Status = Shift.Status::Closed then
             Message(SupervisorCountedClosedMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Cashier Count"), FormatAmt(Shift."Supervisor Count"), FormatAmt(Shift.Difference), FormatAmt(Shift."Count Mismatch"))
+        else if Abs(Shift.Difference) <= POSSetup."Max. Cash Difference" then
+            Message(SupervisorCountedMismatchPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Cashier Count"), FormatAmt(Shift."Supervisor Count"), FormatAmt(Shift.Difference), FormatAmt(Shift."Count Mismatch"))
         else
             Message(SupervisorCountedPendingMsg, Shift."No.", FormatAmt(Shift."Expected Cash"), FormatAmt(Shift."Cashier Count"), FormatAmt(Shift."Supervisor Count"), FormatAmt(Shift.Difference), FormatAmt(Shift."Count Mismatch"));
     end;
@@ -432,9 +627,10 @@ codeunit 50152 "POS Shift Management"
     end;
 
     /// <summary>
-    /// Post Sales at Shift Close: posts the sales of a Closed shift. Does nothing when the switch is off.
-    /// A failure never undoes the close: the close is committed first, and the error is kept on the shift
-    /// (Sales Posting Error) for a retry with Post Shift Sales. Returns the error text, blank when posted.
+    /// Post Sales at Shift Close: posts the sales of a Closed shift, then returns the counted cash from the
+    /// cashier's cash account to Treasury (when Post Cash to Cashier Accounts is on). A sales-posting failure
+    /// never undoes the close: the error is kept on the shift (Sales Posting Error) for a retry with Post Shift
+    /// Sales, and the Treasury return waits until sales are posted.
     /// </summary>
     procedure PostShiftSales(ShiftNo: Code[20]): Text
     var
@@ -443,20 +639,92 @@ codeunit 50152 "POS Shift Management"
         ErrorText: Text;
     begin
         POSSetup.Get();
-        if not POSSetup."Post Sales at Shift Close" then
-            exit('');
-        Commit(); // Codeunit.Run with a return value is not allowed inside an open write transaction
-        Shift.Get(ShiftNo);
-        if Shift."Sales Posted" then
-            exit('');
-        if Codeunit.Run(Codeunit::"POS Post Shift Sales", Shift) then
-            exit('');
-        ErrorText := GetLastErrorText();
-        Shift.Get(ShiftNo);
-        Shift."Sales Posting Error" := CopyStr(ErrorText, 1, MaxStrLen(Shift."Sales Posting Error"));
-        Shift.Modify();
-        Commit();
-        exit(ErrorText);
+        if POSSetup."Post Sales at Shift Close" then begin
+            Commit(); // Codeunit.Run with a return value is not allowed inside an open write transaction
+            Shift.Get(ShiftNo);
+            if not Shift."Sales Posted" then
+                if not Codeunit.Run(Codeunit::"POS Post Shift Sales", Shift) then begin
+                    ErrorText := GetLastErrorText();
+                    Shift.Get(ShiftNo);
+                    Shift."Sales Posting Error" := CopyStr(ErrorText, 1, MaxStrLen(Shift."Sales Posting Error"));
+                    Shift.Modify();
+                    Commit();
+                    exit(ErrorText);
+                end;
+        end;
+        ReturnCashToTreasury(ShiftNo);
+        exit('');
+    end;
+
+    /// <summary>
+    /// Manually triggers the Cashier -> Treasury cash return for an already-closed shift whose cash was not yet
+    /// swept (for example shifts closed before auto-return was enabled). Supervisor only.
+    /// </summary>
+    procedure ReturnShiftCashToTreasury(var Shift: Record "POS Shift")
+    var
+        POSSetup: Record "POS Setup";
+    begin
+        if not IsSupervisor() then
+            Error(NoReturnTreasuryPermErr);
+        Shift.Get(Shift."No.");
+        if Shift.Status <> Shift.Status::Closed then
+            Error(NotClosedReturnErr, Shift."No.", Shift.Status);
+        POSSetup.Get();
+        if not POSSetup."Post Cash to Cashier Accounts" then
+            Error(CashierAccountsOffErr);
+        if POSSetup."Post Sales at Shift Close" and not Shift."Sales Posted" then
+            Error(SalesNotPostedReturnErr, Shift."No.");
+        if Shift."Treasury Transfer No." <> '' then
+            Error(AlreadyReturnedErr, Shift."No.", Shift."Treasury Transfer No.");
+        if Shift."Counted Cash" <= 0 then
+            Error(NoCashToReturnErr, Shift."No.");
+        if not Confirm(ReturnTreasuryQst, true, FormatAmt(Shift."Counted Cash"), Shift."No.") then
+            exit;
+
+        ReturnCashToTreasury(Shift."No.");
+        Shift.Get(Shift."No.");
+        Message(ReturnedToTreasuryMsg, FormatAmt(Shift."Counted Cash"), Shift."No.", Shift."Treasury Transfer No.");
+    end;
+
+    /// <summary>
+    /// Returns the closed shift's counted cash from the cashier's cash account to the location's Treasury
+    /// account in one posted POS Cash Transfer, reusing the shift's denomination count. Idempotent via
+    /// Shift."Treasury Transfer No.".
+    /// </summary>
+    local procedure ReturnCashToTreasury(ShiftNo: Code[20])
+    var
+        POSSetup: Record "POS Setup";
+        Shift: Record "POS Shift";
+        CashierBankAcc: Record "Bank Account";
+        Transfer: Record "POS Cash Transfer";
+        CashAccounts: Codeunit "POS Cash Accounts";
+        CashierAccNo: Code[20];
+        TreasuryAccNo: Code[20];
+        LocationCode: Code[10];
+    begin
+        if not POSSetup.Get() or not POSSetup."Post Cash to Cashier Accounts" then
+            exit;
+        if not Shift.Get(ShiftNo) then
+            exit;
+        if (Shift.Status <> Shift.Status::Closed) or (Shift."Treasury Transfer No." <> '') or (Shift."Counted Cash" <= 0) then
+            exit;
+
+        // Post any unposted difference (e.g. a small variance within Max. Cash Difference on auto-close) so the
+        // cashier's bank account balance matches Counted Cash before sweeping to Treasury.
+        if (Shift.Difference <> 0) and not Shift."Difference Posted" and (POSSetup."Cash Difference Account" <> '') then begin
+            PostDifference(Shift, POSSetup);
+            Shift."Difference Posted" := true;
+            Shift.Modify(true);
+        end;
+
+        CashierAccNo := CashAccounts.CashierAccount(Shift."Cashier Code");
+        LocationCode := Shift."Location Code";
+        if (LocationCode = '') and CashierBankAcc.Get(CashierAccNo) then
+            LocationCode := CashierBankAcc."POS Location Code";
+        TreasuryAccNo := CashAccounts.TreasuryAccount(LocationCode);
+
+        Shift."Treasury Transfer No." := Transfer.AutoPostShiftReturn(Shift, CashierAccNo, TreasuryAccNo, Shift."Counted Cash");
+        Shift.Modify(true);
     end;
 
     /// <summary>

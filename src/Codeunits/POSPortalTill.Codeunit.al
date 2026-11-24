@@ -107,7 +107,7 @@ codeunit 50180 "POS Portal Till"
     begin
         exit(CommandName in ['resume', 'refresh', 'scan', 'addItem', 'setQty', 'deleteLine', 'hold', 'recall', 'recallDoc',
             'newSale', 'payCash', 'payCard', 'payMpesa', 'checkMpesa', 'clearPayments', 'loyaltyPhone', 'redeem', 'post',
-            'openShiftWith', 'closeShiftWith']);
+            'openShiftWith', 'closeShiftWith', 'recountShiftWith']);
     end;
 
     // The Sent transfers waiting on this cashier's own cash account: no, from, fromName, amount, reference, sentAt,

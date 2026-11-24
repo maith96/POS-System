@@ -91,6 +91,11 @@ page 50154 "POS Shift Card"
                     Style = Unfavorable;
                     StyleExpr = Rec.Difference <> 0;
                 }
+                field("Treasury Transfer No."; Rec."Treasury Transfer No.")
+                {
+                    ApplicationArea = All;
+                    Visible = ShowCashFigures;
+                }
             }
             group(Sales)
             {
@@ -173,6 +178,24 @@ page 50154 "POS Shift Card"
                     CurrPage.Update(false);
                 end;
             }
+            action(CashierRecount)
+            {
+                Caption = 'Cashier Recount';
+                ApplicationArea = All;
+                Image = Recalculate;
+                Promoted = true;
+                PromotedCategory = Process;
+                Enabled = Rec.Status = Rec.Status::Closing;
+                ToolTip = 'Recount your own shift while it is Awaiting Supervisor Count, before a supervisor counts the drawer.';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    ShiftMgt.CashierRecountWithDialog(Rec);
+                    CurrPage.Update(false);
+                end;
+            }
             action(SupervisorCount)
             {
                 Caption = 'Supervisor Count';
@@ -188,6 +211,25 @@ page 50154 "POS Shift Card"
                     ShiftMgt: Codeunit "POS Shift Management";
                 begin
                     ShiftMgt.SupervisorCountWithDialog(Rec);
+                    CurrPage.Update(false);
+                end;
+            }
+            action(ReturnForRecount)
+            {
+                Caption = 'Return for Recount';
+                ApplicationArea = All;
+                Image = ReopenCancelled;
+                Promoted = true;
+                PromotedCategory = Process;
+                Visible = ShowCashFigures;
+                Enabled = Rec.Status = Rec.Status::"Pending Approval";
+                ToolTip = 'Send a Pending Approval shift back to Awaiting Supervisor Count so the cashier can recount the drawer (supervisor only).';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    ShiftMgt.ReturnForRecount(Rec);
                     CurrPage.Update(false);
                 end;
             }
@@ -229,6 +271,25 @@ page 50154 "POS Shift Card"
                     CurrPage.Update(false);
                     if ErrorText <> '' then
                         Message(ErrorText);
+                end;
+            }
+            action(ReturnToTreasury)
+            {
+                Caption = 'Return Cash to Treasury';
+                ApplicationArea = All;
+                Image = TransferFunds;
+                Promoted = true;
+                PromotedCategory = Process;
+                Visible = ShowCashFigures;
+                Enabled = CanReturnToTreasury;
+                ToolTip = 'Return this closed shift''s counted cash from the cashier''s cash account to Treasury using the saved shift count (supervisor only).';
+
+                trigger OnAction()
+                var
+                    ShiftMgt: Codeunit "POS Shift Management";
+                begin
+                    ShiftMgt.ReturnShiftCashToTreasury(Rec);
+                    CurrPage.Update(false);
                 end;
             }
             action(Approve)
@@ -273,6 +334,7 @@ page 50154 "POS Shift Card"
     var
         ShowCashFigures: Boolean;
         CanPostSales: Boolean;
+        CanReturnToTreasury: Boolean;
         CashierNameText: Text;
 
     trigger OnAfterGetRecord()
@@ -302,5 +364,8 @@ page 50154 "POS Shift Card"
     begin
         POSSetup.Get();
         CanPostSales := POSSetup."Post Sales at Shift Close" and (Rec.Status = Rec.Status::Closed) and not Rec."Sales Posted";
+        CanReturnToTreasury := POSSetup."Post Cash to Cashier Accounts" and (Rec.Status = Rec.Status::Closed) and
+            (Rec."Treasury Transfer No." = '') and (Rec."Counted Cash" > 0) and
+            (not POSSetup."Post Sales at Shift Close" or Rec."Sales Posted");
     end;
 }

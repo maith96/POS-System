@@ -187,6 +187,13 @@ table 50151 "POS Shift"
             Editable = false;
             ToolTip = 'Why posting the sales of this shift failed. The shift stays closed; fix the cause and use Post Shift Sales.';
         }
+        field(260; "Treasury Transfer No."; Code[20])
+        {
+            Caption = 'Treasury Transfer No.';
+            TableRelation = "POS Cash Transfer";
+            Editable = false;
+            ToolTip = 'The cash transfer that returned this shift''s counted cash from the cashier account to Treasury when the shift closed.';
+        }
     }
 
     keys

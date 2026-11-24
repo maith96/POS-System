@@ -134,6 +134,7 @@ table 50192 "POS Cash Transfer"
         OnlyOpenDeleteErr: Label 'Only an Open transfer can be deleted. Transfer %1 is %2.', Comment = '%1 = no., %2 = status';
         CountMismatchErr: Label 'The cash counted is %1 but the transfer is %2. Count again; if the transfer amount is wrong, the sender must cancel it and correct it.', Comment = '%1 = counted total, %2 = transfer amount';
         PostDescTxt: Label 'Cash transfer %1 to %2', Comment = '%1 = transfer no., %2 = to account';
+        ShiftReturnRemarksTxt: Label 'Auto return from closed shift %1', Comment = '%1 = shift no.';
 
     trigger OnInsert()
     var
@@ -268,6 +269,75 @@ table 50192 "POS Cash Transfer"
         "Received By Employee" := CurrentEmployee();
         "Received At" := CurrentDateTime();
         Modify(false);
+    end;
+
+    /// <summary>
+    /// Creates and immediately posts a Cashier -> Treasury cash transfer for a closed shift's counted cash,
+    /// copying the shift's denomination breakdown (Supervisor count if present, else Closing count) as proof.
+    /// </summary>
+    procedure AutoPostShiftReturn(Shift: Record "POS Shift"; FromAccount: Code[20]; ToAccount: Code[20]; ReturnAmount: Decimal): Code[20]
+    var
+        GenJnlLine: Record "Gen. Journal Line";
+        ShiftCount: Record "POS Shift Cash Count";
+        TransferCount: Record "POS Cash Transfer Count";
+        GenJnlPostLine: Codeunit "Gen. Jnl.-Post Line";
+    begin
+        Init();
+        if Shift."Closed Date" <> 0D then
+            "Posting Date" := Shift."Closed Date"
+        else
+            "Posting Date" := WorkDate();
+        "From Account" := FromAccount;
+        "To Account" := ToAccount;
+        Amount := ReturnAmount;
+        Reference := Shift."No.";
+        Remarks := CopyStr(StrSubstNo(ShiftReturnRemarksTxt, Shift."No."), 1, MaxStrLen(Remarks));
+        Insert(true);
+
+        CheckTransfer();
+
+        GenJnlLine.Init();
+        GenJnlLine."Line No." := 10000;
+        GenJnlLine.Validate("Posting Date", "Posting Date");
+        GenJnlLine."Document No." := "No.";
+        GenJnlLine."External Document No." := Reference;
+        GenJnlLine.Validate("Account Type", GenJnlLine."Account Type"::"Bank Account");
+        GenJnlLine.Validate("Account No.", "To Account");
+        GenJnlLine.Validate("Bal. Account Type", GenJnlLine."Bal. Account Type"::"Bank Account");
+        GenJnlLine.Validate("Bal. Account No.", "From Account");
+        GenJnlLine.Description := CopyStr(StrSubstNo(PostDescTxt, "No.", "To Account"), 1, MaxStrLen(GenJnlLine.Description));
+        GenJnlLine.Validate(Amount, Amount);
+        GenJnlPostLine.RunWithCheck(GenJnlLine);
+
+        // Reuse the shift's Supervisor denomination count if present, otherwise the cashier's Closing count.
+        ShiftCount.SetRange("Shift No.", Shift."No.");
+        ShiftCount.SetRange("Count Type", ShiftCount."Count Type"::Supervisor);
+        if ShiftCount.IsEmpty() then
+            ShiftCount.SetRange("Count Type", ShiftCount."Count Type"::Closing);
+        if ShiftCount.FindSet() then
+            repeat
+                TransferCount.Init();
+                TransferCount."Transfer No." := "No.";
+                TransferCount.Denomination := ShiftCount.Denomination;
+                TransferCount.Quantity := ShiftCount.Quantity;
+                TransferCount.Amount := ShiftCount.Amount;
+                TransferCount."Counted By" := ShiftCount."Counted By";
+                TransferCount."Counted By Employee" := ShiftCount."Counted By Employee";
+                TransferCount.Insert();
+            until ShiftCount.Next() = 0;
+
+        "Sent By" := CopyStr(Shift."Cashier Code", 1, MaxStrLen("Sent By"));
+        "Sent By Employee" := CopyStr(Shift."Cashier Code", 1, MaxStrLen("Sent By Employee"));
+        if Shift."Closed At" <> 0DT then
+            "Sent At" := Shift."Closed At"
+        else
+            "Sent At" := CurrentDateTime();
+        "Received By" := CopyStr(UserId(), 1, MaxStrLen("Received By"));
+        "Received By Employee" := CurrentEmployee();
+        "Received At" := CurrentDateTime();
+        Status := Status::Received;
+        Modify(false);
+        exit("No.");
     end;
 
     /// <summary>

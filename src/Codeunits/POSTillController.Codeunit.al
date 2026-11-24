@@ -88,6 +88,8 @@ codeunit 50166 "POS Till Controller"
                 OpenShiftWith(Payload);
             'closeShiftWith':
                 CloseShiftWith(Payload);
+            'recountShiftWith':
+                RecountShiftWith(Payload);
             'closeShift':
                 ShiftMgt.CloseShiftWithDialog('');
             else
@@ -117,6 +119,7 @@ codeunit 50166 "POS Till Controller"
         LoyaltyEnabled: Boolean;
         RequireShift: Boolean;
         CountCoins: Boolean;
+        CashierAccounts: Boolean;
         MpesaPending: Boolean;
         SelectedFound: Boolean;
         Total: Decimal;
@@ -126,6 +129,7 @@ codeunit 50166 "POS Till Controller"
         StillToPay: Decimal;
         ChangeDue: Decimal;
         ItemCount: Decimal;
+        AccountBalance: Decimal;
         Selected: Integer;
         LastLineNo: Integer;
         LineCount: Integer;
@@ -139,8 +143,12 @@ codeunit 50166 "POS Till Controller"
             LoyaltyEnabled := POSSetup."Enable Loyalty";
             RequireShift := POSSetup."Require Open Shift";
             CountCoins := POSSetup."Count Coins by Type";
+            CashierAccounts := POSSetup."Post Cash to Cashier Accounts";
             PointValue := POSSetup."Loyalty Point Value";
         end;
+        if CashierAccounts then
+            if not TryCashierAccountBalance(AccountBalance) then
+                AccountBalance := 0;
 
         HasSale := LoadCurrent(POSHeader);
         Selected := TillSession.GetSelectedLine();
@@ -201,8 +209,11 @@ codeunit 50166 "POS Till Controller"
             State.Add('status', 'New');
         State.Add('onHold', POSHeader."On Hold");
         State.Add('shiftNo', ShiftMgt.GetOpenShift(CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code"))));
+        State.Add('closingShiftNo', ShiftMgt.GetClosingShift(CopyStr(ActingCashier.GetCashier(), 1, MaxStrLen(POSHeader."Cashier Code"))));
         State.Add('requireShift', RequireShift);
         State.Add('countCoins', CountCoins);
+        State.Add('cashierAccounts', CashierAccounts);
+        State.Add('accountBalance', AccountBalance);
         State.Add('cashier', ActingCashier.GetCashier());
         State.Add('workDate', Format(WorkDate(), 0, '<Day,2>/<Month,2>/<Year4>'));
         State.Add('lines', Lines);
@@ -694,18 +705,29 @@ codeunit 50166 "POS Till Controller"
     // ---------------------------------------------------------------- JSON helpers
 
     // With a "count" array (the portal's note-by-note count) the opening float or counted cash is the count's
-    // total, worked out here so it always matches the saved breakdown. Without one, the plain amount (the BC till).
+    // total, worked out here so it always matches the saved breakdown. Without one, the plain amount (confirmed
+    // from the cashier's cash account, carrying over the last matching transfer's denomination breakdown).
     local procedure OpenShiftWith(Payload: JsonObject)
     var
         TempCount: Record "POS Shift Cash Count" temporary;
         ShiftMgt: Codeunit "POS Shift Management";
+        ShiftNo: Code[20];
         Total: Decimal;
     begin
         if not ReadCount(Payload, TempCount, Total) then begin
-            ShiftMgt.OpenShift(GetDecimal(Payload, 'openingFloat'));
+            ShiftNo := ShiftMgt.OpenShift(GetDecimal(Payload, 'openingFloat'));
+            ShiftMgt.CopyOpeningCountFromTransfer(ShiftNo);
             exit;
         end;
         SaveCount(TempCount, ShiftMgt.OpenShift(Total), TempCount."Count Type"::Opening);
+    end;
+
+    [TryFunction]
+    local procedure TryCashierAccountBalance(var AccountBalance: Decimal)
+    var
+        ShiftMgt: Codeunit "POS Shift Management";
+    begin
+        AccountBalance := ShiftMgt.CashierAccountBalance();
     end;
 
     local procedure CloseShiftWith(Payload: JsonObject)
@@ -720,7 +742,23 @@ codeunit 50166 "POS Till Controller"
             exit;
         end;
         ShiftNo := ShiftMgt.GetOpenShift(CopyStr(ActingCashier.GetCashier(), 1, 50));
+        if ShiftNo <> '' then
+            SaveCount(TempCount, ShiftNo, TempCount."Count Type"::Closing);
         ShiftMgt.CloseOwnShift(Total, GetBoolean(Payload, 'confirmZero')); // errors when there is no open shift
+    end;
+
+    local procedure RecountShiftWith(Payload: JsonObject)
+    var
+        TempCount: Record "POS Shift Cash Count" temporary;
+        ShiftMgt: Codeunit "POS Shift Management";
+        ShiftNo: Code[20];
+        Total: Decimal;
+    begin
+        if not ReadCount(Payload, TempCount, Total) then begin
+            ShiftMgt.CashierRecountOwnShift(GetDecimal(Payload, 'countedCash'), GetBoolean(Payload, 'confirmZero'));
+            exit;
+        end;
+        ShiftNo := ShiftMgt.CashierRecountOwnShift(Total, GetBoolean(Payload, 'confirmZero'));
         SaveCount(TempCount, ShiftNo, TempCount."Count Type"::Closing);
     end;
 
@@ -759,6 +797,9 @@ codeunit 50166 "POS Till Controller"
     var
         CashCount: Record "POS Shift Cash Count";
     begin
+        CashCount.SetRange("Shift No.", ShiftNo);
+        CashCount.SetRange("Count Type", CountType);
+        CashCount.DeleteAll();
         if TempCount.FindSet() then
             repeat
                 CashCount := TempCount;
